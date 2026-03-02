@@ -1,9 +1,10 @@
 {
-  "name": "@mayurbhalgama/cropper",
-  "version": "1.0.0",
+  "name": "react-pixcraft",
+  "version": "1.0.1",
   "description": "Lightweight React image editor with crop, rotate, flip, and scale. Uses only React + native Canvas API.",
   "main": "src/index.js",
   "module": "src/index.js",
+  "publishConfig": { "access": "public" },
   "exports": {
     ".": {
       "import": "./src/index.js",
@@ -25,7 +26,7 @@
     "flip",
     "canvas"
   ],
-  "author": "",
+  "author": "Mayur Bhalgama",
   "license": "MIT",
   "peerDependencies": {
     "react": ">=17.0.0",
