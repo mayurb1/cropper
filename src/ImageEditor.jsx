@@ -102,15 +102,43 @@ const btnWithDisabled = (disabled) => ({
   cursor: disabled ? "not-allowed" : "pointer",
 });
 
+const modalOverlayStyle = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 10000,
+  background: "rgba(0,0,0,0.6)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+const modalBoxStyle = {
+  background: "white",
+  borderRadius: 12,
+  padding: 0,
+  maxWidth: "95vw",
+  maxHeight: "95vh",
+  overflow: "auto",
+  position: "relative",
+  boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+};
+
 export default function ImageEditor({
   src,
   maxViewport = DEFAULT_VIEWPORT,
   onExport,
+  onClose,
   mime = "image/png",
   className,
+  modal = true,
 }) {
   const canvasRef = useRef(null);
+  const [open, setOpen] = useState(true);
   const [baseURL, setBaseURL] = useState(src ?? null);
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+    onClose?.();
+  }, [onClose]);
   const [loadedImg, setLoadedImg] = useState(null);
   const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
 
@@ -235,15 +263,19 @@ export default function ImageEditor({
 
     ctx.restore();
 
-    // Draw crop overlay and rect
-    if (cropRect && cropRect.width > 0 && cropRect.height > 0) {
+    // Draw crop overlay and rect (use normalized rect so negative width/height still clear correctly)
+    if (cropRect && (cropRect.width !== 0 || cropRect.height !== 0)) {
+      const drawX = Math.min(cropRect.x, cropRect.x + cropRect.width);
+      const drawY = Math.min(cropRect.y, cropRect.y + cropRect.height);
+      const drawW = Math.abs(cropRect.width);
+      const drawH = Math.abs(cropRect.height);
       ctx.fillStyle = "rgba(0,0,0,0.4)";
       ctx.fillRect(0, 0, w, h);
-      ctx.clearRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
+      ctx.clearRect(drawX, drawY, drawW, drawH);
       ctx.strokeStyle = "#2f81f7";
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
-      ctx.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
+      ctx.strokeRect(drawX, drawY, drawW, drawH);
     }
   }, [loadedImg, viewport, rotation, flip, cropRect]);
 
@@ -302,6 +334,8 @@ export default function ImageEditor({
       pushHistory(baseURL || dataURL, imgSize.width, imgSize.height);
       setBaseURL(dataURL);
       setImgSize({ width: decoded.width, height: decoded.height });
+      setRotation(0);
+      setFlip({ x: false, y: false });
     },
     [loadedImg, viewport, rotation, flip, baseURL, imgSize, mime, pushHistory]
   );
@@ -385,22 +419,38 @@ export default function ImageEditor({
   };
 
   const applyCrop = useCallback(async () => {
-    if (!canvasRef.current || !cropRect) return;
+    if (!loadedImg || !cropRect) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    const { w, h } = viewport;
+    const { w, h, scale } = viewport;
+    const imgW = loadedImg.naturalWidth || loadedImg.width;
+    const imgH = loadedImg.naturalHeight || loadedImg.height;
+    const drawW = imgW * scale;
+    const drawH = imgH * scale;
+    const ox = (w - drawW) / 2;
+    const oy = (h - drawH) / 2;
 
     const x = Math.min(cropRect.x, cropRect.x + cropRect.width);
     const y = Math.min(cropRect.y, cropRect.y + cropRect.height);
     const cw = Math.abs(cropRect.width);
     const ch = Math.abs(cropRect.height);
 
+    const temp = document.createElement("canvas");
+    temp.width = w;
+    temp.height = h;
+    const tctx = temp.getContext("2d");
+    tctx.save();
+    tctx.translate(w / 2, h / 2);
+    tctx.rotate((rotation * Math.PI) / 180);
+    tctx.scale(flip.x ? -1 : 1, flip.y ? -1 : 1);
+    tctx.translate(-w / 2, -h / 2);
+    tctx.drawImage(loadedImg, 0, 0, imgW, imgH, ox, oy, drawW, drawH);
+    tctx.restore();
+
     const offscreen = document.createElement("canvas");
     offscreen.width = cw;
     offscreen.height = ch;
     const octx = offscreen.getContext("2d");
-    octx.drawImage(canvas, x, y, cw, ch, 0, 0, cw, ch);
+    octx.drawImage(temp, x, y, cw, ch, 0, 0, cw, ch);
 
     const dataURL = offscreen.toDataURL(mime);
     const img = await loadImage(dataURL);
@@ -409,7 +459,7 @@ export default function ImageEditor({
     setImgSize({ width: img.width, height: img.height });
     setCropRect(null);
     setCropMode(false);
-  }, [cropRect, viewport, baseURL, imgSize, mime, pushHistory]);
+  }, [loadedImg, cropRect, viewport, rotation, flip, baseURL, imgSize, mime, pushHistory]);
 
   const clearCrop = () => setCropRect(null);
 
@@ -449,7 +499,7 @@ export default function ImageEditor({
   const originalSize = `${imgSize.width} × ${imgSize.height}`;
   const currentSize = `${viewport.w} × ${viewport.h}`;
 
-  return (
+  const editorContent = (
     <div className={className || ""}>
       <div style={{ ...ui.card, marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -644,4 +694,37 @@ export default function ImageEditor({
       </div>
     </div>
   );
+
+  if (!open) return null;
+  if (modal) {
+    return (
+      <div style={modalOverlayStyle} onClick={handleClose} aria-modal="true" role="dialog">
+        <div style={modalBoxStyle} onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={handleClose}
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              width: 32,
+              height: 32,
+              border: "none",
+              background: "#f6f8fa",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: 18,
+              lineHeight: 1,
+              zIndex: 1,
+            }}
+          >
+            ×
+          </button>
+          <div style={{ padding: 16 }}>{editorContent}</div>
+        </div>
+      </div>
+    );
+  }
+  return editorContent;
 }
