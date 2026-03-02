@@ -1,0 +1,34 @@
+{
+  "name": "@mayurbhalgama/cropper",
+  "version": "1.0.0",
+  "description": "Lightweight React image editor with crop, rotate, flip, and scale. Uses only React + native Canvas API.",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "require": "./src/index.js"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  },
+  "keywords": [
+    "react",
+    "image",
+    "editor",
+    "crop",
+    "rotate",
+    "flip",
+    "canvas"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=17.0.0",
+    "react-dom": ">=17.0.0"
+  }
+}
