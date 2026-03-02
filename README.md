@@ -1,4 +1,4 @@
-# @mayurbhalgama/cropper
+# react-pixcraft
 
 A lightweight React image editor with crop, rotate, flip, and scale. Uses **only React** and the native HTML5 Canvas API—no Konva, use-image, or other image libraries.
 
@@ -14,7 +14,7 @@ A lightweight React image editor with crop, rotate, flip, and scale. Uses **only
 ## Installation
 
 ```bash
-npm install @mayurbhalgama/cropper
+npm install react-pixcraft
 ```
 
 ## Peer Dependencies
@@ -25,7 +25,7 @@ npm install @mayurbhalgama/cropper
 ## Usage
 
 ```jsx
-import { ImageEditor } from "@mayurbhalgama/cropper";
+import { ImageEditor } from "react-pixcraft";
 
 function App() {
   const handleExport = (blob, meta) => {
