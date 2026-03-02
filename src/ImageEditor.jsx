@@ -16,6 +16,7 @@ import React, {
 // ---------- Helpers ----------
 function loadImage(url) {
   return new Promise((resolve, reject) => {
+    console.log("url", url);
     const img = new window.Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
