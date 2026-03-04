@@ -1,11 +1,13 @@
 {
   "name": "react-pixcraft",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Lightweight React image editor with crop, rotate, flip, and scale. Uses only React + native Canvas API.",
   "main": "src/index.js",
   "module": "src/index.js",
   "types": "src/index.d.ts",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "import": "./src/index.js",
