@@ -38,7 +38,10 @@ export interface ImageEditorStyles {
 }
 
 export interface ImageEditorProps {
+  /** Initial image URL. Ignored when `file` is provided. */
   src?: string | null;
+  /** File to edit (e.g. from an input). Creates and revokes object URL internally. Use for edit-before-upload flow. */
+  file?: File | null;
   maxViewport?: { width: number; height: number };
   onExport?: (blob: Blob, meta?: { width: number; height: number; mime: string }) => void;
   onClose?: () => void;

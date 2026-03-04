@@ -256,6 +256,7 @@ const DEFAULT_LABELS = {
 
 export default function ImageEditor({
   src,
+  file,
   maxViewport = DEFAULT_VIEWPORT,
   onExport,
   onClose,
@@ -275,6 +276,17 @@ export default function ImageEditor({
   const [open, setOpen] = useState(true);
   const [baseURL, setBaseURL] = useState(src ?? null);
   const labels = useMemo(() => ({ ...DEFAULT_LABELS, ...labelsProp }), [labelsProp]);
+
+  // When `file` is provided, create object URL and set as image source; revoke on cleanup (middleware flow).
+  // When `file` is null/undefined, use `src` prop. If both provided, `file` wins.
+  useEffect(() => {
+    if (file != null) {
+      const url = URL.createObjectURL(file);
+      setBaseURL(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setBaseURL(src ?? null);
+  }, [file, src]);
 
   const [resolvedTheme, setResolvedTheme] = useState(theme === "auto" ? null : theme);
   useEffect(() => {
