@@ -2,7 +2,7 @@
 
 # react-pixcraft
 
-A lightweight React image editor with crop, rotate, flip, and scale. Uses **only React** and the native HTML5 Canvas API.
+A lightweight React image editor with crop, rotate, flip, and scale. Uses **only React** and the native HTML5 Canvas API. Use it as a full editor or as **edit-before-upload middleware** in your upload flow.
 
 ## Features
 
@@ -24,25 +24,72 @@ npm install react-pixcraft
 - `react` >= 17.0.0
 - `react-dom` >= 17.0.0
 
-## Usage
+## Two ways to use
+
+### 1. Component-first (edit inside the editor)
+
+User opens the editor, uploads or picks an image inside it, edits, then saves. You get the result in `onExport`.
 
 ```jsx
 import { ImageEditor } from "react-pixcraft";
 
 function App() {
+  const [showEditor, setShowEditor] = useState(false);
+
   const handleExport = (blob, meta) => {
-    console.log("Exported:", meta.width, "x", meta.height);
-    // Use blob for upload, download, etc.
+    // Upload blob to your server, or trigger download, etc.
+    uploadToServer(blob);
+    setShowEditor(false);
   };
 
   return (
-    <ImageEditor
-      src="https://example.com/image.jpg"
-      onExport={handleExport}
-      maxViewport={{ width: 1920, height: 1080 }}
-      mime="image/png"
-      className="my-editor"
-    />
+    <>
+      <button onClick={() => setShowEditor(true)}>Edit profile picture</button>
+      {showEditor && (
+        <ImageEditor
+          src={null}
+          onExport={handleExport}
+          onClose={() => setShowEditor(false)}
+          maxViewport={{ width: 1920, height: 1080 }}
+          mime="image/png"
+        />
+      )}
+    </>
+  );
+}
+```
+
+### 2. Edit-before-upload (middleware)
+
+User selects a file in your UI → editor opens with that file → user edits → on Save you get a Blob and upload it. Pass the `File` via the `file` prop; the component creates and revokes the object URL for you.
+
+```jsx
+import { ImageEditor } from "react-pixcraft";
+
+function App() {
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const handleExport = (blob, meta) => {
+    uploadToServer(blob);  // Upload the edited image, not the original file
+    setSelectedFile(null);
+  };
+
+  return (
+    <>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+      />
+      {selectedFile && (
+        <ImageEditor
+          file={selectedFile}
+          onExport={handleExport}
+          onClose={() => setSelectedFile(null)}
+          mime="image/jpeg"
+        />
+      )}
+    </>
   );
 }
 ```
@@ -51,7 +98,8 @@ function App() {
 
 | Prop                  | Type       | Default              | Description                                                    |
 |-----------------------|------------|----------------------|----------------------------------------------------------------|
-| `src`                 | `string`   | `null`               | Initial image URL (or null to upload first)                   |
+| `src`                 | `string`   | `null`               | Initial image URL (or null to upload first). Ignored if `file` is set. |
+| `file`                | `File`     | —                    | File to edit (e.g. from an input). Use for edit-before-upload; object URL is managed internally. |
 | `onExport`            | `function` | —                    | `(blob, { width, height, mime }) => void`                     |
 | `onClose`             | `function` | —                    | Called when the editor is closed (e.g. modal close)            |
 | `maxViewport`         | `object`   | `{ width: 1920, height: 1080 }` | Max display size                                      |

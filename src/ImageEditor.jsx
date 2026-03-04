@@ -256,6 +256,7 @@ const DEFAULT_LABELS = {
 
 export default function ImageEditor({
   src,
+  file,
   maxViewport = DEFAULT_VIEWPORT,
   onExport,
   onClose,
@@ -275,6 +276,17 @@ export default function ImageEditor({
   const [open, setOpen] = useState(true);
   const [baseURL, setBaseURL] = useState(src ?? null);
   const labels = useMemo(() => ({ ...DEFAULT_LABELS, ...labelsProp }), [labelsProp]);
+
+  // When `file` is provided, create object URL and set as image source; revoke on cleanup (middleware flow).
+  // When `file` is null/undefined, use `src` prop. If both provided, `file` wins.
+  useEffect(() => {
+    if (file != null) {
+      const url = URL.createObjectURL(file);
+      setBaseURL(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setBaseURL(src ?? null);
+  }, [file, src]);
 
   const [resolvedTheme, setResolvedTheme] = useState(theme === "auto" ? null : theme);
   useEffect(() => {
@@ -838,11 +850,11 @@ export default function ImageEditor({
           <button type="button" style={baseBtn} onClick={() => setCropMode((v) => !v)} aria-pressed={cropMode}>
             {labels.crop}
           </button>
-          <button type="button" style={baseBtn} onClick={rotateLeft}>{labels.rotateLeft}</button>
-          <button type="button" style={baseBtn} onClick={rotateRight}>{labels.rotateRight}</button>
-          <button type="button" style={baseBtn} onClick={rotate180}>{labels.rotate180}</button>
-          <button type="button" style={baseBtn} onClick={flipV}>{labels.flipVertical}</button>
-          <button type="button" style={baseBtn} onClick={flipH}>{labels.flipHorizontal}</button>
+          {/* <button type="button" style={baseBtn} onClick={rotateLeft}>{labels.rotateLeft}</button> */}
+          {/* <button type="button" style={baseBtn} onClick={rotateRight}>{labels.rotateRight}</button> */}
+          {/* <button type="button" style={baseBtn} onClick={rotate180}>{labels.rotate180}</button> */}
+          {/* <button type="button" style={baseBtn} onClick={flipV}>{labels.flipVertical}</button> */}
+          {/* <button type="button" style={baseBtn} onClick={flipH}>{labels.flipHorizontal}</button> */}
           <span style={{ margin: "0 4px", color: "var(--rp-text-muted)", opacity: 0.6 }} aria-hidden>|</span>
           <button type="button" style={btnDisabled(!history.length)} onClick={undo} disabled={!history.length}>{labels.undo}</button>
           <button type="button" style={btnDisabled(!redo.length)} onClick={redoAction} disabled={!redo.length}>{labels.redo}</button>
