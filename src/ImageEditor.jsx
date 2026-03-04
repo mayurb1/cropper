@@ -16,7 +16,6 @@ import React, {
 // ---------- Helpers ----------
 function loadImage(url) {
   return new Promise((resolve, reject) => {
-    console.log("url", url);
     const img = new window.Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
@@ -61,65 +60,198 @@ function normalizeFromPoints(sx, sy, px, py, aspect) {
   return { x, y, width: w, height: h };
 }
 
-const ui = {
-  btn: {
-    padding: "8px 12px",
-    border: "1px solid #d0d7de",
-    background: "#f6f8fa",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontSize: 14,
-  },
-  btnPrimary: {
-    padding: "8px 12px",
-    border: "1px solid #1f6feb",
-    background: "#2f81f7",
-    color: "white",
-    borderRadius: 6,
-    cursor: "pointer",
-  },
-  input: {
-    padding: 8,
-    border: "1px solid #d0d7de",
-    borderRadius: 6,
-    fontSize: 14,
-    width: "100%",
-  },
-  label: { fontSize: 12, color: "#57606a" },
-  card: {
-    border: "1px solid #d0d7de",
-    borderRadius: 12,
-    padding: 16,
-    background: "white",
-  },
-  heading: { margin: 0, fontSize: 16, fontWeight: 600 },
-  small: { fontSize: 12, color: "#57606a" },
+const CROP_HANDLE_SIZE = 10;
+
+function getCropRectNormalized(cropRect) {
+  if (!cropRect || (cropRect.width === 0 && cropRect.height === 0)) return null;
+  const x = Math.min(cropRect.x, cropRect.x + cropRect.width);
+  const y = Math.min(cropRect.y, cropRect.y + cropRect.height);
+  const width = Math.abs(cropRect.width);
+  const height = Math.abs(cropRect.height);
+  return { x, y, width, height };
+}
+
+function hitTestCropHandle(px, py, cropRect, handleSize) {
+  const r = getCropRectNormalized(cropRect);
+  if (!r) return null;
+  const half = handleSize / 2;
+  const { x, y, width, height } = r;
+  const corners = [
+    ["nw", x, y],
+    ["ne", x + width, y],
+    ["se", x + width, y + height],
+    ["sw", x, y + height],
+  ];
+  for (const [handle, hx, hy] of corners) {
+    if (px >= hx - half && px <= hx + half && py >= hy - half && py <= hy + half) return handle;
+  }
+  const midX = x + width / 2;
+  const midY = y + height / 2;
+  if (py >= y - half && py <= y + half && px >= x + half && px <= x + width - half) return "n";
+  if (px >= x + width - half && px <= x + width + half && py >= y + half && py <= y + height - half) return "e";
+  if (py >= y + height - half && py <= y + height + half && px >= x + half && px <= x + width - half) return "s";
+  if (px >= x - half && px <= x + half && py >= y + half && py <= y + height - half) return "w";
+  if (px >= x && px <= x + width && py >= y && py <= y + height) return "center";
+  return null;
+}
+
+function resizeCropRectFromHandle(handle, drawX, drawY, drawW, drawH, posX, posY, aspect, viewport) {
+  let x, y, w, h;
+  switch (handle) {
+    case "se":
+      x = drawX;
+      y = drawY;
+      w = posX - drawX;
+      h = posY - drawY;
+      break;
+    case "sw":
+      x = posX;
+      y = drawY;
+      w = drawX + drawW - posX;
+      h = posY - drawY;
+      break;
+    case "nw":
+      x = posX;
+      y = posY;
+      w = drawX + drawW - posX;
+      h = drawY + drawH - posY;
+      break;
+    case "ne":
+      x = drawX;
+      y = posY;
+      w = posX - drawX;
+      h = drawY + drawH - posY;
+      break;
+    case "n":
+      x = drawX;
+      y = posY;
+      w = drawW;
+      h = drawY + drawH - posY;
+      break;
+    case "s":
+      x = drawX;
+      y = drawY;
+      w = drawW;
+      h = posY - drawY;
+      break;
+    case "e":
+      x = drawX;
+      y = drawY;
+      w = posX - drawX;
+      h = drawH;
+      break;
+    case "w":
+      x = posX;
+      y = drawY;
+      w = drawX + drawW - posX;
+      h = drawH;
+      break;
+    default:
+      return null;
+  }
+  if (handle === "n" || handle === "s") {
+    if (h < 0) {
+      y = handle === "n" ? drawY + drawH : drawY + h;
+      h = Math.abs(h);
+    }
+  } else if (handle === "e" || handle === "w") {
+    if (w < 0) {
+      x = handle === "w" ? drawX + drawW : drawX + w;
+      w = Math.abs(w);
+    }
+  } else {
+    x = Math.min(x, x + w);
+    y = Math.min(y, y + h);
+    w = Math.abs(w);
+    h = Math.abs(h);
+  }
+  if (handle !== "n" && handle !== "s" && handle !== "e" && handle !== "w") {
+    w = Math.abs(w);
+    h = Math.abs(h);
+  }
+  if (aspect && aspect > 0) {
+    if (w / (h || 1) > aspect) h = w / aspect;
+    else w = h * aspect;
+    switch (handle) {
+      case "se":
+        break;
+      case "sw":
+        x = drawX + drawW - w;
+        break;
+      case "nw":
+        x = drawX + drawW - w;
+        y = drawY + drawH - h;
+        break;
+      case "ne":
+        y = drawY + drawH - h;
+        break;
+      case "n":
+        y = drawY + drawH - h;
+        break;
+      case "s":
+        break;
+      case "e":
+        break;
+      case "w":
+        x = drawX + drawW - w;
+        break;
+    }
+  }
+  return clampRectToViewport({ x, y, width: w, height: h }, viewport);
+}
+
+// Theme tokens – consumers can override via CSS variables on .react-pixcraft-editor
+const LIGHT_VARS = {
+  "--rp-bg": "#ffffff",
+  "--rp-surface": "#f6f8fa",
+  "--rp-border": "#d0d7de",
+  "--rp-text": "#24292f",
+  "--rp-text-muted": "#57606a",
+  "--rp-primary": "#218bff",
+  "--rp-primary-hover": "#0969da",
+  "--rp-input-bg": "#ffffff",
+  "--rp-overlay": "rgba(0,0,0,0.6)",
+  "--rp-shadow": "0 25px 50px -12px rgba(0,0,0,0.25)",
+  "--rp-checker": "#eee",
+};
+const DARK_VARS = {
+  "--rp-bg": "#1c2128",
+  "--rp-surface": "#21262d",
+  "--rp-border": "#373e47",
+  "--rp-text": "#e6edf3",
+  "--rp-text-muted": "#8b949e",
+  "--rp-primary": "#58a6ff",
+  "--rp-primary-hover": "#79b8ff",
+  "--rp-input-bg": "#0d1117",
+  "--rp-overlay": "rgba(0,0,0,0.75)",
+  "--rp-shadow": "0 25px 50px -12px rgba(0,0,0,0.5)",
+  "--rp-checker": "#30363d",
 };
 
-const btnWithDisabled = (disabled) => ({
-  ...ui.btn,
-  opacity: disabled ? 0.5 : 1,
-  cursor: disabled ? "not-allowed" : "pointer",
-});
-
-const modalOverlayStyle = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 10000,
-  background: "rgba(0,0,0,0.6)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-const modalBoxStyle = {
-  background: "white",
-  borderRadius: 12,
-  padding: 0,
-  maxWidth: "95vw",
-  maxHeight: "95vh",
-  overflow: "auto",
-  position: "relative",
-  boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+const DEFAULT_LABELS = {
+  title: "Image editor",
+  close: "Close",
+  crop: "Crop",
+  rotateLeft: "Rotate 90° left",
+  rotateRight: "Rotate 90° right",
+  rotate180: "Rotate 180°",
+  flipVertical: "Flip vertical",
+  flipHorizontal: "Flip horizontal",
+  undo: "Undo",
+  redo: "Redo",
+  cancelEditing: "Cancel editing",
+  applyCrop: "Apply crop",
+  clearCrop: "Clear crop",
+  upload: "Upload",
+  save: "Save",
+  scale: "Scale",
+  width: "Width",
+  height: "Height",
+  aspectRatio: "Aspect ratio (e.g. 16/9)",
+  selectOrUpload: "Select or upload an image to begin",
+  imageLoaded: "Image loaded",
+  originalDimensions: "Original",
+  currentView: "View",
 };
 
 export default function ImageEditor({
@@ -130,10 +262,37 @@ export default function ImageEditor({
   mime = "image/png",
   className,
   modal = true,
+  theme = "light",
+  labels: labelsProp,
+  classNameToolbar,
+  classNameCanvasWrapper,
+  classNameModal,
+  classNameOverlay,
+  styles: stylesProp,
 }) {
   const canvasRef = useRef(null);
+  const modalContentRef = useRef(null);
   const [open, setOpen] = useState(true);
   const [baseURL, setBaseURL] = useState(src ?? null);
+  const labels = useMemo(() => ({ ...DEFAULT_LABELS, ...labelsProp }), [labelsProp]);
+
+  const [resolvedTheme, setResolvedTheme] = useState(theme === "auto" ? null : theme);
+  useEffect(() => {
+    if (theme !== "auto") {
+      setResolvedTheme(theme);
+      return;
+    }
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => setResolvedTheme(mq.matches ? "dark" : "light");
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [theme]);
+
+  const themeVars = useMemo(
+    () => (resolvedTheme === "dark" ? DARK_VARS : LIGHT_VARS),
+    [resolvedTheme]
+  );
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -161,6 +320,7 @@ export default function ImageEditor({
   const isDrawingRef = useRef(false);
   const startPointRef = useRef(null);
   const dragStartRef = useRef(null);
+  const resizeHandleRef = useRef(null);
 
   const viewport = useMemo(() => {
     const imgW = imgSize.width || 1;
@@ -200,6 +360,27 @@ export default function ImageEditor({
     setScaleH("");
     scaleInputRef.current = { width: false, height: false };
   }, [baseURL]);
+
+  useEffect(() => {
+    if (!modal || !open) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [modal, open, handleClose]);
+
+  useEffect(() => {
+    if (!modal || !open) return;
+    const timer = requestAnimationFrame(() => {
+      const el = modalContentRef.current;
+      if (!el) return;
+      const focusables = el.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      const first = focusables[0];
+      if (first && typeof first.focus === "function") first.focus();
+    });
+    return () => cancelAnimationFrame(timer);
+  }, [modal, open]);
 
   const originalAspectRatio = useMemo(() => {
     if (imgSize.width && imgSize.height) return imgSize.width / imgSize.height;
@@ -263,21 +444,43 @@ export default function ImageEditor({
 
     ctx.restore();
 
-    // Draw crop overlay and rect (use normalized rect so negative width/height still clear correctly)
+    // Draw crop overlay only outside the crop rect (so the selected area stays visible)
     if (cropRect && (cropRect.width !== 0 || cropRect.height !== 0)) {
       const drawX = Math.min(cropRect.x, cropRect.x + cropRect.width);
       const drawY = Math.min(cropRect.y, cropRect.y + cropRect.height);
       const drawW = Math.abs(cropRect.width);
       const drawH = Math.abs(cropRect.height);
       ctx.fillStyle = "rgba(0,0,0,0.4)";
-      ctx.fillRect(0, 0, w, h);
-      ctx.clearRect(drawX, drawY, drawW, drawH);
-      ctx.strokeStyle = "#2f81f7";
+      ctx.beginPath();
+      ctx.rect(0, 0, w, h);
+      ctx.rect(drawX, drawY, drawW, drawH);
+      ctx.fill("evenodd");
+      ctx.strokeStyle = resolvedTheme === "dark" ? "#58a6ff" : "#218bff";
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       ctx.strokeRect(drawX, drawY, drawW, drawH);
+      ctx.setLineDash([]);
+      const handleColor = resolvedTheme === "dark" ? "#58a6ff" : "#218bff";
+      const hs = CROP_HANDLE_SIZE / 2;
+      const handles = [
+        [drawX, drawY],
+        [drawX + drawW, drawY],
+        [drawX + drawW, drawY + drawH],
+        [drawX, drawY + drawH],
+        [drawX + drawW / 2, drawY],
+        [drawX + drawW, drawY + drawH / 2],
+        [drawX + drawW / 2, drawY + drawH],
+        [drawX, drawY + drawH / 2],
+      ];
+      ctx.fillStyle = handleColor;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1.5;
+      for (const [hx, hy] of handles) {
+        ctx.fillRect(hx - hs, hy - hs, CROP_HANDLE_SIZE, CROP_HANDLE_SIZE);
+        ctx.strokeRect(hx - hs, hy - hs, CROP_HANDLE_SIZE, CROP_HANDLE_SIZE);
+      }
     }
-  }, [loadedImg, viewport, rotation, flip, cropRect]);
+  }, [loadedImg, viewport, rotation, flip, cropRect, resolvedTheme]);
 
   useLayoutEffect(() => {
     redraw();
@@ -378,9 +581,21 @@ export default function ImageEditor({
     if (!pos) return;
 
     if (cropMode) {
-      if (cropRect && pos.x >= cropRect.x && pos.x <= cropRect.x + cropRect.width && pos.y >= cropRect.y && pos.y <= cropRect.y + cropRect.height) {
-        dragStartRef.current = { x: pos.x - cropRect.x, y: pos.y - cropRect.y, rect: { ...cropRect } };
-        return;
+      if (cropRect && (cropRect.width !== 0 || cropRect.height !== 0)) {
+        const hit = hitTestCropHandle(pos.x, pos.y, cropRect, CROP_HANDLE_SIZE);
+        if (hit === "nw" || hit === "ne" || hit === "se" || hit === "sw" || hit === "n" || hit === "e" || hit === "s" || hit === "w") {
+          resizeHandleRef.current = hit;
+          return;
+        }
+        if (hit === "center") {
+          const r = getCropRectNormalized(cropRect);
+          dragStartRef.current = {
+            x: pos.x - r.x,
+            y: pos.y - r.y,
+            rect: { x: r.x, y: r.y, width: r.width, height: r.height },
+          };
+          return;
+        }
       }
       isDrawingRef.current = true;
       startPointRef.current = pos;
@@ -392,7 +607,26 @@ export default function ImageEditor({
     const pos = getCanvasPoint(e);
     if (!pos) return;
 
-    if (cropMode && isDrawingRef.current && startPointRef.current) {
+    if (!cropMode && canvasRef.current) {
+      canvasRef.current.style.cursor = "";
+    }
+    if (cropMode && resizeHandleRef.current) {
+      const r = getCropRectNormalized(cropRect);
+      if (r) {
+        const next = resizeCropRectFromHandle(
+          resizeHandleRef.current,
+          r.x,
+          r.y,
+          r.width,
+          r.height,
+          pos.x,
+          pos.y,
+          aspect,
+          viewport
+        );
+        if (next) setCropRect(next);
+      }
+    } else if (cropMode && isDrawingRef.current && startPointRef.current) {
       const { x: sx, y: sy } = startPointRef.current;
       const next = normalizeFromPoints(sx, sy, pos.x, pos.y, aspect);
       setCropRect(clampRectToViewport(next, viewport));
@@ -405,18 +639,52 @@ export default function ImageEditor({
         viewport
       );
       setCropRect(clamped);
+    } else if (cropMode && canvasRef.current && cropRect && (cropRect.width !== 0 || cropRect.height !== 0)) {
+      const hit = hitTestCropHandle(pos.x, pos.y, cropRect, CROP_HANDLE_SIZE);
+      const cursor =
+        hit === "nw" || hit === "se"
+          ? "nwse-resize"
+          : hit === "ne" || hit === "sw"
+            ? "nesw-resize"
+            : hit === "n" || hit === "s"
+              ? "ns-resize"
+              : hit === "e" || hit === "w"
+                ? "ew-resize"
+                : hit === "center"
+                  ? "move"
+                  : "crosshair";
+      canvasRef.current.style.cursor = cursor;
     }
   };
 
-  const onCanvasMouseUp = () => {
+  const clearDragState = useCallback(() => {
     isDrawingRef.current = false;
     startPointRef.current = null;
     dragStartRef.current = null;
+    resizeHandleRef.current = null;
+    if (canvasRef.current) canvasRef.current.style.cursor = "";
+  }, []);
+
+  const onCanvasMouseUp = () => {
+    clearDragState();
   };
 
   const onCanvasMouseLeave = () => {
-    onCanvasMouseUp();
+    clearDragState();
   };
+
+  useEffect(() => {
+    if (!cropMode) return;
+    const onWindowMouseUp = () => {
+      isDrawingRef.current = false;
+      startPointRef.current = null;
+      dragStartRef.current = null;
+      resizeHandleRef.current = null;
+      if (canvasRef.current) canvasRef.current.style.cursor = "";
+    };
+    window.addEventListener("mouseup", onWindowMouseUp);
+    return () => window.removeEventListener("mouseup", onWindowMouseUp);
+  }, [cropMode]);
 
   const applyCrop = useCallback(async () => {
     if (!loadedImg || !cropRect) return;
@@ -498,198 +766,224 @@ export default function ImageEditor({
 
   const originalSize = `${imgSize.width} × ${imgSize.height}`;
   const currentSize = `${viewport.w} × ${viewport.h}`;
+  const isLoading = Boolean(baseURL && !loadedImg);
+
+  const baseBtn = {
+    padding: "8px 12px",
+    border: "1px solid var(--rp-border)",
+    background: "var(--rp-surface)",
+    color: "var(--rp-text)",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 14,
+  };
+  const primaryBtn = {
+    ...baseBtn,
+    border: "1px solid var(--rp-primary)",
+    background: "var(--rp-primary)",
+    color: "white",
+  };
+  const btnDisabled = (disabled) => ({
+    ...baseBtn,
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? "not-allowed" : "pointer",
+  });
+  const inputStyle = {
+    padding: 8,
+    border: "1px solid var(--rp-border)",
+    borderRadius: 6,
+    fontSize: 14,
+    background: "var(--rp-input-bg)",
+    color: "var(--rp-text)",
+    width: "100%",
+  };
 
   const editorContent = (
-    <div className={className || ""}>
-      <div style={{ ...ui.card, marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <h3 style={ui.heading}>Attachment details</h3>
-          <div style={ui.small}>{baseURL ? "Image loaded" : "Choose an image"}</div>
+    <div
+      className={`react-pixcraft-editor ${className || ""}`.trim()}
+      style={{ ...themeVars, ...stylesProp?.root }}
+      data-theme={resolvedTheme ?? "light"}
+      ref={modal ? undefined : modalContentRef}
+    >
+      <div
+        style={{
+          border: "1px solid var(--rp-border)",
+          borderRadius: 12,
+          padding: 16,
+          background: "var(--rp-bg)",
+          ...stylesProp?.card,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+          <h2 id="react-pixcraft-title" style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "var(--rp-text)" }}>
+            {labels.title}
+          </h2>
+          <span style={{ fontSize: 13, color: "var(--rp-text-muted)" }}>
+            {baseURL ? (isLoading ? "Loading…" : labels.imageLoaded) : labels.selectOrUpload}
+          </span>
         </div>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
-          <button style={ui.btn} onClick={() => setCropMode((v) => !v)}>Crop</button>
-          <button style={ui.btn} onClick={rotateLeft}>Rotate 90° left</button>
-          <button style={ui.btn} onClick={rotateRight}>Rotate 90° right</button>
-          <button style={ui.btn} onClick={rotate180}>Rotate 180°</button>
-          <button style={ui.btn} onClick={flipV}>Flip vertical</button>
-          <button style={ui.btn} onClick={flipH}>Flip horizontal</button>
-          <span style={{ margin: "0 6px", opacity: 0.4 }}>|</span>
-          <button style={btnWithDisabled(!history.length)} onClick={undo} disabled={!history.length}>Undo</button>
-          <button style={btnWithDisabled(!redo.length)} onClick={redoAction} disabled={!redo.length}>Redo</button>
-          <button style={btnWithDisabled(!history.length)} onClick={onCancel} disabled={!history.length}>Cancel Editing</button>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-            {cropRect ? <button style={ui.btnPrimary} onClick={applyCrop}>Apply Crop</button> : null}
-            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onPickFile} />
-            <button style={ui.btn} onClick={() => fileInputRef.current?.click()}>Upload</button>
-            <button style={ui.btnPrimary} onClick={onSave}>Save Edits</button>
+        {/* Toolbar: all actions in one place */}
+        <div
+          className={classNameToolbar}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            alignItems: "center",
+            marginBottom: 12,
+            ...stylesProp?.toolbar,
+          }}
+        >
+          <button type="button" style={baseBtn} onClick={() => setCropMode((v) => !v)} aria-pressed={cropMode}>
+            {labels.crop}
+          </button>
+          <button type="button" style={baseBtn} onClick={rotateLeft}>{labels.rotateLeft}</button>
+          <button type="button" style={baseBtn} onClick={rotateRight}>{labels.rotateRight}</button>
+          <button type="button" style={baseBtn} onClick={rotate180}>{labels.rotate180}</button>
+          <button type="button" style={baseBtn} onClick={flipV}>{labels.flipVertical}</button>
+          <button type="button" style={baseBtn} onClick={flipH}>{labels.flipHorizontal}</button>
+          <span style={{ margin: "0 4px", color: "var(--rp-text-muted)", opacity: 0.6 }} aria-hidden>|</span>
+          <button type="button" style={btnDisabled(!history.length)} onClick={undo} disabled={!history.length}>{labels.undo}</button>
+          <button type="button" style={btnDisabled(!redo.length)} onClick={redoAction} disabled={!redo.length}>{labels.redo}</button>
+          <button type="button" style={btnDisabled(!history.length)} onClick={onCancel} disabled={!history.length}>{labels.cancelEditing}</button>
+          {cropRect ? (
+            <>
+              <button type="button" style={primaryBtn} onClick={applyCrop}>{labels.applyCrop}</button>
+              <button type="button" style={baseBtn} onClick={clearCrop}>{labels.clearCrop}</button>
+            </>
+          ) : null}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onPickFile} aria-hidden />
+            <button type="button" style={baseBtn} onClick={() => fileInputRef.current?.click()}>{labels.upload}</button>
+            <button type="button" style={primaryBtn} onClick={onSave}>{labels.save}</button>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
-          <div style={{ border: "1px solid #d0d7de", borderRadius: 12, padding: 8, background: "#f8fafc" }}>
-            {!baseURL ? (
-              <div style={{ height: 420, display: "flex", alignItems: "center", justifyContent: "center", color: "#57606a", fontSize: 14 }}>
-                Select or upload an image to begin.
-              </div>
-            ) : (
-              <canvas
-                ref={canvasRef}
-                width={viewport.w}
-                height={viewport.h}
-                onMouseDown={onCanvasMouseDown}
-                onMouseMove={onCanvasMouseMove}
-                onMouseUp={onCanvasMouseUp}
-                onMouseLeave={onCanvasMouseLeave}
-                style={{
-                  display: "block",
-                  margin: "0 auto",
-                  maxWidth: "100%",
-                  backgroundImage: "linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%)",
-                  backgroundSize: "16px 16px",
-                  backgroundPosition: "0 0,8px 8px",
-                  borderRadius: 8,
+        {/* Options row: aspect ratio (when crop) + scale */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end", marginBottom: 12 }}>
+          {cropMode && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <label style={{ fontSize: 12, color: "var(--rp-text-muted)", whiteSpace: "nowrap" }}>{labels.aspectRatio}</label>
+              <input
+                style={{ ...inputStyle, width: 120 }}
+                placeholder="e.g. 16/9"
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (!v) return setAspect(undefined);
+                  let val = Number(v);
+                  if (Number.isNaN(val) && v.includes("/")) {
+                    const [a, b] = v.split("/").map(Number);
+                    if (!Number.isNaN(a) && !Number.isNaN(b) && b !== 0) val = a / b;
+                  }
+                  setAspect(!Number.isNaN(val) && val > 0 ? val : undefined);
                 }}
               />
-            )}
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "var(--rp-text-muted)" }}>
+              {labels.originalDimensions} {originalSize} · {labels.currentView} {currentSize}
+            </span>
+            <label style={{ fontSize: 12, color: "var(--rp-text-muted)" }}>{labels.width}</label>
+            <input
+              style={{ ...inputStyle, width: 72 }}
+              value={scaleW}
+              onFocus={() => { scaleInputRef.current.width = true; scaleInputRef.current.height = false; }}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, "");
+                scaleInputRef.current.width = true;
+                scaleInputRef.current.height = false;
+                setScaleW(value);
+                if (value && originalAspectRatio > 0) {
+                  const w = parseInt(value, 10);
+                  if (!Number.isNaN(w) && w > 0) setScaleH(Math.round(w / originalAspectRatio).toString());
+                } else if (!value) setScaleH("");
+              }}
+              placeholder="px"
+              disabled={!baseURL}
+            />
+            <label style={{ fontSize: 12, color: "var(--rp-text-muted)" }}>{labels.height}</label>
+            <input
+              style={{ ...inputStyle, width: 72 }}
+              value={scaleH}
+              onFocus={() => { scaleInputRef.current.width = false; scaleInputRef.current.height = true; }}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, "");
+                scaleInputRef.current.width = false;
+                scaleInputRef.current.height = true;
+                setScaleH(value);
+                if (value && originalAspectRatio > 0) {
+                  const h = parseInt(value, 10);
+                  if (!Number.isNaN(h) && h > 0) setScaleW(Math.round(h * originalAspectRatio).toString());
+                } else if (!value) setScaleW("");
+              }}
+              placeholder="px"
+              disabled={!baseURL}
+            />
+            <button type="button" style={btnDisabled(!baseURL)} onClick={onScale} disabled={!baseURL}>{labels.scale}</button>
           </div>
+        </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={ui.card}>
-              <h4 style={ui.heading}>Scale image</h4>
-              <div style={{ ...ui.small, marginTop: 6 }}>Original dimensions {originalSize}</div>
-              <div style={ui.small}>Current view {currentSize}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 8, marginTop: 8 }}>
-                <label style={ui.label}>Width</label>
-                <input
-                  style={ui.input}
-                  value={scaleW}
-                  onFocus={() => { scaleInputRef.current.width = true; scaleInputRef.current.height = false; }}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9]/g, "");
-                    scaleInputRef.current.width = true;
-                    scaleInputRef.current.height = false;
-                    setScaleW(value);
-                    if (value && originalAspectRatio > 0) {
-                      const w = parseInt(value, 10);
-                      if (!Number.isNaN(w) && w > 0) setScaleH(Math.round(w / originalAspectRatio).toString());
-                    } else if (!value) setScaleH("");
-                  }}
-                  placeholder="px"
-                />
-                <label style={ui.label}>Height</label>
-                <input
-                  style={ui.input}
-                  value={scaleH}
-                  onFocus={() => { scaleInputRef.current.width = false; scaleInputRef.current.height = true; }}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9]/g, "");
-                    scaleInputRef.current.width = false;
-                    scaleInputRef.current.height = true;
-                    setScaleH(value);
-                    if (value && originalAspectRatio > 0) {
-                      const h = parseInt(value, 10);
-                      if (!Number.isNaN(h) && h > 0) setScaleW(Math.round(h * originalAspectRatio).toString());
-                    } else if (!value) setScaleW("");
-                  }}
-                  placeholder="px"
-                />
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <button style={ui.btn} onClick={onScale}>Scale</button>
-              </div>
+        {/* Canvas area – full width, responsive */}
+        <div
+          className={classNameCanvasWrapper}
+          style={{
+            border: "1px solid var(--rp-border)",
+            borderRadius: 12,
+            padding: 12,
+            background: "var(--rp-surface)",
+            minHeight: 280,
+            ...stylesProp?.canvasWrapper,
+          }}
+        >
+          {!baseURL ? (
+            <div
+              style={{
+                minHeight: 320,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--rp-text-muted)",
+                fontSize: 14,
+              }}
+            >
+              {labels.selectOrUpload}
             </div>
-
-            <div style={ui.card}>
-              <h4 style={ui.heading}>Crop image</h4>
-              <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, marginTop: 8 }}>
-                <label style={ui.label}>Aspect ratio</label>
-                <input
-                  style={ui.input}
-                  placeholder="e.g. 16/9 or 1.333"
-                  onBlur={(e) => {
-                    const v = e.target.value.trim();
-                    if (!v) return setAspect(undefined);
-                    let val = Number(v);
-                    if (Number.isNaN(val) && v.includes("/")) {
-                      const [a, b] = v.split("/").map(Number);
-                      if (!Number.isNaN(a) && !Number.isNaN(b) && b !== 0) val = a / b;
-                    }
-                    setAspect(!Number.isNaN(val) && val > 0 ? val : undefined);
-                  }}
-                />
-                <label style={ui.label}>Start (x, y)</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <input
-                    type="number"
-                    style={ui.input}
-                    disabled={!cropRect}
-                    value={cropRect ? Math.round(cropRect.x) : ""}
-                    onChange={(e) => {
-                      if (!cropRect) return;
-                      setCropRect((r) => clampRectToViewport({ ...r, x: parseInt(e.target.value || "0", 10) }, viewport));
-                    }}
-                  />
-                  <input
-                    type="number"
-                    style={ui.input}
-                    disabled={!cropRect}
-                    value={cropRect ? Math.round(cropRect.y) : ""}
-                    onChange={(e) => {
-                      if (!cropRect) return;
-                      setCropRect((r) => clampRectToViewport({ ...r, y: parseInt(e.target.value || "0", 10) }, viewport));
-                    }}
-                  />
-                </div>
-                <label style={ui.label}>Selection (w × h)</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <input
-                    type="number"
-                    min={10}
-                    style={ui.input}
-                    disabled={!cropRect}
-                    value={cropRect ? Math.round(cropRect.width) : ""}
-                    onChange={(e) => {
-                      if (!cropRect) return;
-                      let w = Math.max(10, parseInt(e.target.value || "0", 10));
-                      let h = cropRect.height;
-                      if (aspect > 0) h = Math.round(w / aspect);
-                      setCropRect((r) => clampRectToViewport({ ...r, width: w, height: h }, viewport));
-                    }}
-                  />
-                  <input
-                    type="number"
-                    min={10}
-                    style={ui.input}
-                    disabled={!cropRect}
-                    value={cropRect ? Math.round(cropRect.height) : ""}
-                    onChange={(e) => {
-                      if (!cropRect) return;
-                      let h = Math.max(10, parseInt(e.target.value || "0", 10));
-                      let w = cropRect.width;
-                      if (aspect > 0) w = Math.round(h * aspect);
-                      setCropRect((r) => clampRectToViewport({ ...r, width: w, height: h }, viewport));
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-                <button style={{ ...ui.btn, flex: 1 }} disabled={!cropRect} onClick={applyCrop}>Apply Crop</button>
-                <button style={{ ...ui.btn, flex: 1 }} disabled={!cropRect} onClick={clearCrop}>Clear Crop</button>
-              </div>
+          ) : isLoading ? (
+            <div
+              style={{
+                minHeight: 320,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--rp-text-muted)",
+                fontSize: 14,
+              }}
+            >
+              Loading…
             </div>
-
-            <div style={ui.card}>
-              <h4 style={ui.heading}>Rotation & Flip</h4>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-                <button style={ui.btn} onClick={rotateLeft}>Rotate 90° left</button>
-                <button style={ui.btn} onClick={rotateRight}>Rotate 90° right</button>
-                <button style={{ ...ui.btn, gridColumn: "1 / span 2" }} onClick={rotate180}>Rotate 180°</button>
-                <button style={ui.btn} onClick={flipV}>Flip vertical</button>
-                <button style={ui.btn} onClick={flipH}>Flip horizontal</button>
-              </div>
-            </div>
-          </div>
+          ) : (
+            <canvas
+              ref={canvasRef}
+              width={viewport.w}
+              height={viewport.h}
+              onMouseDown={onCanvasMouseDown}
+              onMouseMove={onCanvasMouseMove}
+              onMouseUp={onCanvasMouseUp}
+              onMouseLeave={onCanvasMouseLeave}
+              style={{
+                display: "block",
+                margin: "0 auto",
+                maxWidth: "100%",
+                height: "auto",
+                backgroundImage: "linear-gradient(45deg, var(--rp-checker) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--rp-checker) 75%)",
+                backgroundSize: "16px 16px",
+                backgroundPosition: "0 0, 8px 8px",
+                borderRadius: 8,
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -698,11 +992,45 @@ export default function ImageEditor({
   if (!open) return null;
   if (modal) {
     return (
-      <div style={modalOverlayStyle} onClick={handleClose} aria-modal="true" role="dialog">
-        <div style={modalBoxStyle} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={classNameOverlay}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 10000,
+          background: "var(--rp-overlay)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 16,
+          ...themeVars,
+          ...stylesProp?.overlay,
+        }}
+        onClick={handleClose}
+        aria-modal="true"
+        role="dialog"
+        aria-labelledby="react-pixcraft-title"
+      >
+        <div
+          className={classNameModal}
+          ref={modalContentRef}
+          style={{
+            background: "var(--rp-bg)",
+            borderRadius: 12,
+            padding: 0,
+            maxWidth: "95vw",
+            maxHeight: "95vh",
+            overflow: "auto",
+            position: "relative",
+            boxShadow: "var(--rp-shadow)",
+            ...themeVars,
+            ...stylesProp?.modal,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
-            aria-label="Close"
+            aria-label={labels.close}
             onClick={handleClose}
             style={{
               position: "absolute",
@@ -711,10 +1039,11 @@ export default function ImageEditor({
               width: 32,
               height: 32,
               border: "none",
-              background: "#f6f8fa",
+              background: "var(--rp-surface)",
+              color: "var(--rp-text)",
               borderRadius: 6,
               cursor: "pointer",
-              fontSize: 18,
+              fontSize: 20,
               lineHeight: 1,
               zIndex: 1,
             }}
