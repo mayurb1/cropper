@@ -1,4 +1,4 @@
-import type { ComponentType, CSSProperties } from "react";
+import type { CSSProperties } from "react";
 
 export type ImageEditorTheme = "light" | "dark" | "auto";
 
@@ -6,6 +6,16 @@ export interface ImageEditorLabels {
   title?: string;
   close?: string;
   crop?: string;
+  resize?: string;
+  scale?: string;
+  seo?: string;
+  cropMode?: string;
+  cropModeFree?: string;
+  cropModeFixed?: string;
+  aspectRatio?: string;
+  selection?: string;
+  discard?: string;
+  editThenSave?: string;
   rotateLeft?: string;
   rotateRight?: string;
   rotate180?: string;
@@ -18,14 +28,20 @@ export interface ImageEditorLabels {
   clearCrop?: string;
   upload?: string;
   save?: string;
-  scale?: string;
   width?: string;
   height?: string;
-  aspectRatio?: string;
+  aspectRatioHint?: string;
   selectOrUpload?: string;
   imageLoaded?: string;
   originalDimensions?: string;
   currentView?: string;
+  outputDimensions?: string;
+  widthPx?: string;
+  heightPx?: string;
+  lockAspectRatio?: string;
+  applyResize?: string;
+  scaleFactor?: string;
+  applyScale?: string;
 }
 
 export interface ImageEditorStyles {
@@ -40,7 +56,7 @@ export interface ImageEditorStyles {
 export interface ImageEditorProps {
   /** Initial image URL. Ignored when `file` is provided. */
   src?: string | null;
-  /** File to edit (e.g. from an input). Creates and revokes object URL internally. Use for edit-before-upload flow. */
+  /** File to edit (e.g. from an input). Creates and revokes object URL internally. */
   file?: File | null;
   maxViewport?: { width: number; height: number };
   onExport?: (blob: Blob, meta?: { width: number; height: number; mime: string }) => void;
@@ -57,10 +73,21 @@ export interface ImageEditorProps {
   styles?: ImageEditorStyles;
 }
 
-export const ImageEditor: ComponentType<ImageEditorProps>;
+export interface HistoryEntry {
+  dataURL: string;
+  width: number;
+  height: number;
+}
 
-declare const reactPixcraft: {
-  ImageEditor: ComponentType<ImageEditorProps>;
-};
+export interface Viewport {
+  w: number;
+  h: number;
+  scale: number;
+}
 
-export default reactPixcraft;
+export interface CropRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}

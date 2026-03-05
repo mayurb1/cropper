@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { ImageEditor } from "../src/index.js";
+import { ImageEditor } from "../src/index.ts";
 
 const sectionStyle = {
   marginBottom: 32,
