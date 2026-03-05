@@ -22,7 +22,14 @@ import React, {
   useState,
 } from "react";
 import type { ImageEditorProps, CropRect, Viewport } from "./types";
-import { DEFAULT_VIEWPORT, DEFAULT_LABELS, CROP_HANDLE_SIZE } from "./constants";
+import {
+  DEFAULT_VIEWPORT,
+  DEFAULT_LABELS,
+  CROP_HANDLE_SIZE,
+  CORE_TABS,
+  CUSTOM_TAB_ID,
+} from "./constants";
+import type { TabId } from "./constants";
 import { loadImage, dataUrlToBlob } from "./utils/image";
 import {
   getCropRectNormalized,
@@ -43,6 +50,7 @@ import {
   ScaleSidebar,
   EditorFooter,
 } from "./components";
+import type { EditorToolbarTab } from "./components";
 
 export function ImageEditor({
   src,
@@ -60,6 +68,7 @@ export function ImageEditor({
   classNameModal,
   classNameOverlay,
   styles: stylesProp,
+  customTab,
 }: ImageEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modalContentRef = useRef<HTMLDivElement>(null);
@@ -71,6 +80,25 @@ export function ImageEditor({
     () => ({ ...DEFAULT_LABELS, ...labelsProp } as typeof DEFAULT_LABELS),
     [labelsProp]
   );
+
+  const [activeTab, setActiveTab] = useState<TabId>("crop");
+
+  const editorTabs = useMemo((): EditorToolbarTab[] => {
+    const core: EditorToolbarTab[] = CORE_TABS.map((id) => ({
+      id,
+      label: labels[id] ?? id,
+    }));
+    if (customTab) {
+      core.push({ id: CUSTOM_TAB_ID, label: customTab.label });
+    }
+    return core;
+  }, [labels, customTab]);
+
+  useEffect(() => {
+    if (activeTab === CUSTOM_TAB_ID && !customTab) {
+      setActiveTab("crop");
+    }
+  }, [activeTab, customTab]);
 
   const { baseURL, setBaseURL } = useObjectURL(file, src, uploadedFile);
   const { resolvedTheme, themeVars } = useTheme(theme ?? "light");
@@ -90,7 +118,6 @@ export function ImageEditor({
   const [flip, setFlip] = useState({ x: false, y: false });
   const pendingTransformCommitRef = useRef(false);
 
-  const [activeTab, setActiveTab] = useState<string>("crop");
   const [cropMode, setCropMode] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
   const [aspect, setAspect] = useState<number | undefined>(undefined);
@@ -640,6 +667,7 @@ export function ImageEditor({
         </div>
 
         <EditorToolbar
+          tabs={editorTabs}
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab)}
           onClose={handleClose}
@@ -661,23 +689,13 @@ export function ImageEditor({
               flex:
                 activeTab === "crop" ||
                 activeTab === "resize" ||
-                activeTab === "scale"
+                activeTab === "scale" ||
+                activeTab === CUSTOM_TAB_ID
                   ? "1 1 0"
                   : "1 1 100%",
               minWidth: 280,
             }}
           >
-            {activeTab === "seo" ? (
-              <div
-                style={{
-                  marginBottom: 12,
-                  fontSize: 14,
-                  color: "var(--rp-text-muted)",
-                }}
-              >
-                SEO options (placeholder)
-              </div>
-            ) : null}
             <div
               className={classNameCanvasWrapper}
               style={{
@@ -815,6 +833,17 @@ export function ImageEditor({
               labels={labels}
               baseURL={baseURL}
             />
+          )}
+
+          {activeTab === CUSTOM_TAB_ID && customTab && (
+            <div
+              role="tabpanel"
+              id={`react-pixcraft-panel-${CUSTOM_TAB_ID}`}
+              aria-labelledby={`react-pixcraft-tab-${CUSTOM_TAB_ID}`}
+              style={{ minWidth: 280 }}
+            >
+              {customTab.content}
+            </div>
           )}
         </div>
 

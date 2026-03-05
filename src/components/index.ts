@@ -1,5 +1,5 @@
 export { EditorToolbar } from "./EditorToolbar";
-export type { EditorToolbarProps } from "./EditorToolbar";
+export type { EditorToolbarProps, EditorToolbarTab } from "./EditorToolbar";
 export { CropSidebar } from "./CropSidebar";
 export type { CropSidebarProps } from "./CropSidebar";
 export { ResizeSidebar } from "./ResizeSidebar";

@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 export type ImageEditorTheme = "light" | "dark" | "auto";
 
@@ -44,6 +44,14 @@ export interface ImageEditorLabels {
   applyScale?: string;
 }
 
+/** Config for the optional fourth (custom) tab. User provides label and content rendered in the sidebar. */
+export interface CustomTabConfig {
+  /** Label shown in the tab button */
+  label: string;
+  /** Component rendered in the sidebar when this tab is active */
+  content: ReactNode;
+}
+
 export interface ImageEditorStyles {
   root?: CSSProperties;
   card?: CSSProperties;
@@ -71,6 +79,8 @@ export interface ImageEditorProps {
   classNameModal?: string;
   classNameOverlay?: string;
   styles?: ImageEditorStyles;
+  /** Optional fourth tab: custom label and content rendered in the sidebar */
+  customTab?: CustomTabConfig;
 }
 
 export interface HistoryEntry {

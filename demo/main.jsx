@@ -76,6 +76,11 @@ function ComponentFirstExample() {
           onClose={() => setShowEditor(false)}
           maxViewport={{ width: 1920, height: 1080 }}
           mime="image/png"
+
+          customTab={{
+            label: "Custom",
+            content: <div>Custom content</div>,
+          }}
         />
       )}
     </div>

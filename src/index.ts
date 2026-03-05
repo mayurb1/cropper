@@ -4,6 +4,7 @@ export type {
   ImageEditorLabels,
   ImageEditorStyles,
   ImageEditorTheme,
+  CustomTabConfig,
   HistoryEntry,
   Viewport,
   CropRect,

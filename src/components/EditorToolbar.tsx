@@ -1,9 +1,15 @@
 import React from "react";
 import type { ImageEditorLabels, ImageEditorStyles } from "../types";
 import type { TabId } from "../constants";
-import { TABS } from "../constants";
+
+export interface EditorToolbarTab {
+  id: TabId;
+  label: string;
+}
 
 export interface EditorToolbarProps {
+  /** Tabs to display (core tabs + optional custom tab from parent) */
+  tabs: EditorToolbarTab[];
   activeTab: string;
   onTabChange: (tab: TabId) => void;
   onClose: () => void;
@@ -13,6 +19,7 @@ export interface EditorToolbarProps {
 }
 
 export function EditorToolbar({
+  tabs,
   activeTab,
   onTabChange,
   onClose,
@@ -34,19 +41,18 @@ export function EditorToolbar({
         ...styles?.toolbar,
       }}
     >
-      {TABS.map((tabId) => {
-        const isActive = activeTab === tabId;
-        const label = labels[tabId as keyof ImageEditorLabels] ?? tabId;
+      {tabs.map(({ id, label }) => {
+        const isActive = activeTab === id;
         return (
           <button
-            key={tabId}
+            key={id}
             type="button"
             role="tab"
             aria-selected={isActive}
-            aria-controls={`react-pixcraft-panel-${tabId}`}
-            id={`react-pixcraft-tab-${tabId}`}
+            aria-controls={`react-pixcraft-panel-${id}`}
+            id={`react-pixcraft-tab-${id}`}
             tabIndex={isActive ? 0 : -1}
-            onClick={() => onTabChange(tabId)}
+            onClick={() => onTabChange(id)}
             style={{
               padding: "10px 16px",
               border: "none",

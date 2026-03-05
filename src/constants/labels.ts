@@ -6,7 +6,6 @@ export const DEFAULT_LABELS: ImageEditorLabels = {
   crop: "Crop",
   resize: "Resize",
   scale: "Scale",
-  seo: "SEO",
   cropModeFree: "Free",
   cropModeFixed: "Fixed",
   cropMode: "CROP MODE",
