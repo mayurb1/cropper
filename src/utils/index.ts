@@ -1,4 +1,5 @@
 export { loadImage, dataUrlToBlob } from "./image";
+export { axisAlignedBoundsForRotatedRect } from "./geometry";
 export {
   clampRectToViewport,
   normalizeFromPoints,

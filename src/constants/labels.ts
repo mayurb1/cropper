@@ -1,6 +1,6 @@
 import type { ImageEditorLabels } from "../types";
 
-export const DEFAULT_LABELS: ImageEditorLabels = {
+export const DEFAULT_LABELS = {
   title: "Image editor",
   close: "Close",
   crop: "Crop",
@@ -13,6 +13,7 @@ export const DEFAULT_LABELS: ImageEditorLabels = {
   selection: "SELECTION",
   discard: "Discard",
   save: "Save",
+  imageRotationMenu: "Image rotation",
   rotateLeft: "Rotate 90° left",
   rotateRight: "Rotate 90° right",
   rotate180: "Rotate 180°",
@@ -39,4 +40,4 @@ export const DEFAULT_LABELS: ImageEditorLabels = {
   applyResize: "Apply Resize",
   scaleFactor: "SCALE FACTOR",
   applyScale: "Apply Scale",
-};
+} satisfies ImageEditorLabels;

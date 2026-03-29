@@ -16,6 +16,8 @@ export interface ImageEditorLabels {
   selection?: string;
   discard?: string;
   editThenSave?: string;
+  /** Label for the rotate/flip dropdown trigger */
+  imageRotationMenu?: string;
   rotateLeft?: string;
   rotateRight?: string;
   rotate180?: string;
@@ -56,7 +58,11 @@ export interface ImageEditorStyles {
   root?: CSSProperties;
   card?: CSSProperties;
   toolbar?: CSSProperties;
+  /** Row containing the image rotation menu above the canvas */
+  transformBar?: CSSProperties;
   canvasWrapper?: CSSProperties;
+  /** Scrollable region when `canvasFrame` is set */
+  canvasScrollArea?: CSSProperties;
   overlay?: CSSProperties;
   modal?: CSSProperties;
 }
@@ -67,6 +73,11 @@ export interface ImageEditorProps {
   /** File to edit (e.g. from an input). Creates and revokes object URL internally. */
   file?: File | null;
   maxViewport?: { width: number; height: number };
+  /**
+   * Fixed width and height of the image area. When the scaled canvas exceeds this box,
+   * scrollbars appear. Omit for responsive layout (`maxWidth: 100%` on the canvas).
+   */
+  canvasFrame?: { width: number; height: number };
   onExport?: (blob: Blob, meta?: { width: number; height: number; mime: string }) => void;
   onClose?: () => void;
   mime?: string;
@@ -75,7 +86,10 @@ export interface ImageEditorProps {
   theme?: ImageEditorTheme;
   labels?: Partial<ImageEditorLabels>;
   classNameToolbar?: string;
+  classNameTransformBar?: string;
   classNameCanvasWrapper?: string;
+  /** Applied to the scroll container when `canvasFrame` is set */
+  classNameCanvasScrollArea?: string;
   classNameModal?: string;
   classNameOverlay?: string;
   styles?: ImageEditorStyles;
@@ -90,6 +104,7 @@ export interface HistoryEntry {
 }
 
 export interface Viewport {
+  /** Canvas width/height (fits the rotated preview; larger than the image rect when rotation is not 0° mod 180°). */
   w: number;
   h: number;
   scale: number;

@@ -7,6 +7,7 @@
  * ```tsx
  * <ImageEditor
  *   src={imageUrl}
+ *   canvasFrame={{ width: 640, height: 480 }}
  *   onExport={(blob) => console.log(blob)}
  *   onClose={() => setOpen(false)}
  * />
@@ -20,6 +21,7 @@ import React, {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
 } from "react";
 import type { ImageEditorProps, CropRect, Viewport } from "./types";
 import {
@@ -31,6 +33,7 @@ import {
 } from "./constants";
 import type { TabId } from "./constants";
 import { loadImage, dataUrlToBlob } from "./utils/image";
+import { axisAlignedBoundsForRotatedRect } from "./utils/geometry";
 import {
   getCropRectNormalized,
   clampRectToViewport,
@@ -45,6 +48,7 @@ import { useObjectURL } from "./hooks/useObjectURL";
 import { useEditorHistory } from "./hooks/useEditorHistory";
 import {
   EditorToolbar,
+  EditorTransformMenu,
   CropSidebar,
   ResizeSidebar,
   ScaleSidebar,
@@ -56,6 +60,7 @@ export function ImageEditor({
   src,
   file,
   maxViewport = DEFAULT_VIEWPORT,
+  canvasFrame,
   onExport,
   onClose,
   mime = "image/png",
@@ -64,7 +69,9 @@ export function ImageEditor({
   theme = "light",
   labels: labelsProp,
   classNameToolbar,
+  classNameTransformBar,
   classNameCanvasWrapper,
+  classNameCanvasScrollArea,
   classNameModal,
   classNameOverlay,
   styles: stylesProp,
@@ -143,15 +150,40 @@ export function ImageEditor({
     const maxW = maxViewport.width;
     const maxH = maxViewport.height;
     const scale = Math.min(maxW / imgW, maxH / imgH, 1);
-    const w = Math.round(imgW * scale);
-    const h = Math.round(imgH * scale);
+    const drawW = imgW * scale;
+    const drawH = imgH * scale;
+    const { width: bw, height: bh } = axisAlignedBoundsForRotatedRect(
+      drawW,
+      drawH,
+      rotation
+    );
+    const w = Math.max(1, Math.ceil(bw - 1e-9));
+    const h = Math.max(1, Math.ceil(bh - 1e-9));
     return { w, h, scale };
-  }, [imgSize, maxViewport.width, maxViewport.height]);
+  }, [imgSize, maxViewport.width, maxViewport.height, rotation]);
+
+  const canvasStyle = useMemo((): CSSProperties => {
+    const base: CSSProperties = {
+      display: "block",
+      margin: "0 auto",
+      backgroundImage:
+        "linear-gradient(45deg, var(--rp-checker) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--rp-checker) 75%)",
+      backgroundSize: "16px 16px",
+      backgroundPosition: "0 0, 8px 8px",
+      borderRadius: 8,
+    };
+    if (canvasFrame) {
+      base.maxWidth = "none";
+    } else {
+      base.maxWidth = "100%";
+      base.height = "auto";
+    }
+    return base;
+  }, [canvasFrame]);
 
   useEffect(() => {
     setRotation(0);
     setFlip({ x: false, y: false });
-    setCropMode(false);
     setCropRect(null);
     setScaleW("");
     setScaleH("");
@@ -161,7 +193,7 @@ export function ImageEditor({
   useEffect(() => {
     setCropMode(activeTab === "crop");
     if (activeTab !== "crop") setCropRect(null);
-  }, [activeTab]);
+  }, [activeTab, baseURL]);
 
   useEffect(() => {
     if (activeTab === "resize" && imgSize.width > 0 && imgSize.height > 0) {
@@ -555,7 +587,6 @@ export function ImageEditor({
     setBaseURL(dataURL);
     setImgSize({ width: img.width, height: img.height });
     setCropRect(null);
-    setCropMode(false);
   }, [
     loadedImg,
     cropRect,
@@ -611,22 +642,8 @@ export function ImageEditor({
     [setHistory, setRedoStack]
   );
 
-  const editorContent = (
-    <div
-      className={`react-pixcraft-editor ${className ?? ""}`.trim()}
-      style={{ ...themeVars, ...stylesProp?.root }}
-      data-theme={resolvedTheme}
-      ref={modal ? undefined : modalContentRef}
-    >
-      <div
-        style={{
-          border: "1px solid var(--rp-border)",
-          borderRadius: 12,
-          padding: 16,
-          background: "var(--rp-bg)",
-          ...stylesProp?.card,
-        }}
-      >
+  const editorInner = (
+    <>
         <div
           style={{
             display: "flex",
@@ -675,6 +692,40 @@ export function ImageEditor({
           classNameToolbar={classNameToolbar}
           styles={stylesProp}
         />
+
+        {baseURL && (
+          <div
+            className={classNameTransformBar}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 8,
+              marginBottom: 12,
+              ...stylesProp?.transformBar,
+            }}
+          >
+            <EditorTransformMenu
+              labels={{
+                imageRotationMenu:
+                  labels.imageRotationMenu ?? DEFAULT_LABELS.imageRotationMenu,
+                rotateLeft: labels.rotateLeft ?? DEFAULT_LABELS.rotateLeft,
+                rotateRight: labels.rotateRight ?? DEFAULT_LABELS.rotateRight,
+                rotate180: labels.rotate180 ?? DEFAULT_LABELS.rotate180,
+                flipVertical:
+                  labels.flipVertical ?? DEFAULT_LABELS.flipVertical,
+                flipHorizontal:
+                  labels.flipHorizontal ?? DEFAULT_LABELS.flipHorizontal,
+              }}
+              onRotateLeft={rotateLeft}
+              onRotateRight={rotateRight}
+              onRotate180={rotate180}
+              onFlipVertical={flipV}
+              onFlipHorizontal={flipH}
+              disabled={isLoading}
+            />
+          </div>
+        )}
 
         <div
           style={{
@@ -754,26 +805,32 @@ export function ImageEditor({
                       </div>
                     );
                   })()}
-                  <canvas
-                    ref={canvasRef}
-                    width={viewport.w}
-                    height={viewport.h}
-                    onMouseDown={onCanvasMouseDown}
-                    onMouseMove={onCanvasMouseMove}
-                    onMouseUp={clearDragState}
-                    onMouseLeave={clearDragState}
-                    style={{
-                      display: "block",
-                      margin: "0 auto",
-                      maxWidth: "100%",
-                      height: "auto",
-                      backgroundImage:
-                        "linear-gradient(45deg, var(--rp-checker) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--rp-checker) 75%)",
-                      backgroundSize: "16px 16px",
-                      backgroundPosition: "0 0, 8px 8px",
-                      borderRadius: 8,
-                    }}
-                  />
+                  <div
+                    className={
+                      canvasFrame ? classNameCanvasScrollArea : undefined
+                    }
+                    style={
+                      canvasFrame
+                        ? {
+                            width: canvasFrame.width,
+                            height: canvasFrame.height,
+                            overflow: "auto",
+                            ...stylesProp?.canvasScrollArea,
+                          }
+                        : undefined
+                    }
+                  >
+                    <canvas
+                      ref={canvasRef}
+                      width={viewport.w}
+                      height={viewport.h}
+                      onMouseDown={onCanvasMouseDown}
+                      onMouseMove={onCanvasMouseMove}
+                      onMouseUp={clearDragState}
+                      onMouseLeave={clearDragState}
+                      style={canvasStyle}
+                    />
+                  </div>
                   {baseURL && (
                     <div
                       style={{
@@ -858,12 +915,56 @@ export function ImageEditor({
           labels={labels}
           fileInputRef={fileInputRef}
         />
+    </>
+  );
+
+  const editorContent = (
+    <div
+      className={`react-pixcraft-editor ${className ?? ""}`.trim()}
+      style={{ ...themeVars, ...stylesProp?.root }}
+      data-theme={resolvedTheme}
+      ref={modal ? undefined : modalContentRef}
+    >
+      <div
+        style={{
+          border: "1px solid var(--rp-border)",
+          borderRadius: 12,
+          padding: 16,
+          background: "var(--rp-bg)",
+          ...stylesProp?.card,
+        }}
+      >
+        {editorInner}
       </div>
     </div>
   );
 
   if (!open) return null;
   if (modal) {
+    const modalPanelClass = [
+      "react-pixcraft-editor",
+      className,
+      classNameModal,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    const modalPanelStyle: CSSProperties = {
+      maxWidth: "95vw",
+      maxHeight: "95vh",
+      overflow: "auto",
+      position: "relative",
+      boxShadow: "var(--rp-shadow)",
+      border: "1px solid var(--rp-border)",
+      borderRadius: 12,
+      padding: 16,
+      background: "var(--rp-bg)",
+      ...stylesProp?.modal,
+      ...stylesProp?.root,
+      ...stylesProp?.card,
+    };
+
     return (
       <div
         className={classNameOverlay}
@@ -880,28 +981,18 @@ export function ImageEditor({
           ...stylesProp?.overlay,
         }}
         onClick={handleClose}
-        aria-modal="true"
-        role="dialog"
-        aria-labelledby="react-pixcraft-title"
       >
         <div
-          className={classNameModal}
+          className={modalPanelClass || undefined}
+          data-theme={resolvedTheme}
           ref={modalContentRef}
-          style={{
-            background: "var(--rp-bg)",
-            borderRadius: 12,
-            padding: 0,
-            maxWidth: "95vw",
-            maxHeight: "95vh",
-            overflow: "auto",
-            position: "relative",
-            boxShadow: "var(--rp-shadow)",
-            ...themeVars,
-            ...stylesProp?.modal,
-          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="react-pixcraft-title"
+          style={modalPanelStyle}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={{ padding: 16 }}>{editorContent}</div>
+          {editorInner}
         </div>
       </div>
     );
