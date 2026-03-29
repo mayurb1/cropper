@@ -8,4 +8,8 @@ export type {
   HistoryEntry,
   Viewport,
   CropRect,
+  FilterConfig,
+  ExportOptions,
+  ExportImageFormat,
+  ImageEditorBatchItem,
 } from "./types";

@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useMemo } from "react";
 import type { ImageEditorLabels } from "../types";
 import { primaryBtn } from "../styles";
+import { estimateRgbSizeKb } from "../utils/validation";
 
 export interface ScaleSidebarProps {
   scaleFactorPercent: number;
@@ -9,19 +10,26 @@ export interface ScaleSidebarProps {
   onApplyScale: () => void;
   labels: ImageEditorLabels;
   baseURL: string | null;
+  compact?: boolean;
 }
 
 const SIDEBAR_STYLE: React.CSSProperties = {
-  flex: "0 0 240px",
+  flex: "0 0 320px",
+  maxWidth: "100%",
   padding: 16,
   background: "var(--rp-surface)",
   border: "1px solid var(--rp-border)",
   borderRadius: 12,
-  minWidth: 200,
+  minWidth: 280,
+  display: "flex",
+  flexDirection: "column",
 };
 
 const SCALE_PRESETS = [25, 50, 75, 100, 125, 150, 175, 200];
 
+/**
+ * Uniform scale by percentage with estimated output size.
+ */
 export function ScaleSidebar({
   scaleFactorPercent,
   setScaleFactorPercent,
@@ -29,7 +37,21 @@ export function ScaleSidebar({
   onApplyScale,
   labels,
   baseURL,
+  compact = false,
 }: ScaleSidebarProps) {
+  const outW =
+    imgSize.width > 0
+      ? Math.round((imgSize.width * scaleFactorPercent) / 100)
+      : 0;
+  const outH =
+    imgSize.height > 0
+      ? Math.round((imgSize.height * scaleFactorPercent) / 100)
+      : 0;
+  const estKb = useMemo(
+    () => estimateRgbSizeKb(outW, outH),
+    [outW, outH]
+  );
+
   return (
     <div
       id="react-pixcraft-panel-scale"
@@ -103,10 +125,13 @@ export function ScaleSidebar({
               border: `1px solid ${scaleFactorPercent === pct ? "var(--rp-primary)" : "var(--rp-border)"}`,
               borderRadius: 6,
               background:
-                scaleFactorPercent === pct ? "var(--rp-primary)" : "var(--rp-input-bg)",
+                scaleFactorPercent === pct
+                  ? "var(--rp-primary)"
+                  : "var(--rp-input-bg)",
               color: scaleFactorPercent === pct ? "white" : "var(--rp-text)",
               cursor: baseURL ? "pointer" : "not-allowed",
               fontSize: 12,
+              minHeight: compact ? 40 : undefined,
             }}
           >
             {pct}%
@@ -117,17 +142,26 @@ export function ScaleSidebar({
         style={{
           fontSize: 12,
           color: "var(--rp-text-muted)",
-          marginBottom: 16,
+          marginBottom: 8,
         }}
       >
         ←{" "}
         {imgSize.width > 0 && imgSize.height > 0
-          ? `${Math.round((imgSize.width * scaleFactorPercent) / 100)} × ${Math.round((imgSize.height * scaleFactorPercent) / 100)}px`
+          ? `${outW} × ${outH}px`
           : "—"}
+      </div>
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--rp-text-muted)",
+          marginBottom: 16,
+        }}
+      >
+        {labels.estimatedSize}: ~{estKb} KB (RGB estimate)
       </div>
       <button
         type="button"
-        style={primaryBtn}
+        style={{ ...primaryBtn, marginTop: "auto" }}
         onClick={onApplyScale}
         disabled={!baseURL}
       >

@@ -19,15 +19,28 @@ export interface CropSidebarProps {
   onClearCrop: () => void;
   labels: ImageEditorLabels;
   baseURL: string | null;
+  /** Current rotation in degrees (0–359) for display */
+  rotationDeg: number;
+  onRotateLeft: () => void;
+  onRotateRight: () => void;
+  onRotate180: () => void;
+  onFlipHorizontal: () => void;
+  onFlipVertical: () => void;
+  transformDisabled?: boolean;
+  /** Larger tap targets when layout is compact */
+  compact?: boolean;
 }
 
 const SIDEBAR_STYLE: React.CSSProperties = {
-  flex: "0 0 240px",
+  flex: "0 0 320px",
+  maxWidth: "100%",
   padding: 16,
   background: "var(--rp-surface)",
   border: "1px solid var(--rp-border)",
   borderRadius: 12,
-  minWidth: 200,
+  minWidth: 280,
+  display: "flex",
+  flexDirection: "column",
 };
 
 const SECTION_LABEL_STYLE: React.CSSProperties = {
@@ -38,6 +51,22 @@ const SECTION_LABEL_STYLE: React.CSSProperties = {
   letterSpacing: "0.5px",
   marginBottom: 8,
 };
+
+const ICON_BTN = (compact: boolean): React.CSSProperties => ({
+  minWidth: compact ? 44 : 40,
+  minHeight: compact ? 44 : 36,
+  padding: compact ? 10 : 8,
+  border: "1px solid var(--rp-border)",
+  borderRadius: 8,
+  background: "var(--rp-input-bg)",
+  color: "var(--rp-text)",
+  cursor: "pointer",
+  fontSize: 16,
+  lineHeight: 1,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+});
 
 export function CropSidebar({
   cropModeType,
@@ -52,11 +81,22 @@ export function CropSidebar({
   labels,
   baseURL,
   setCropModeType,
+  rotationDeg,
+  onRotateLeft,
+  onRotateRight,
+  onRotate180,
+  onFlipHorizontal,
+  onFlipVertical,
+  transformDisabled = false,
+  compact = false,
 }: CropSidebarProps) {
   const r =
     cropRect && (cropRect.width !== 0 || cropRect.height !== 0)
       ? getCropRectNormalized(cropRect)
       : null;
+
+  const disabledTransform = transformDisabled || !baseURL;
+  const ib = ICON_BTN(compact);
 
   const updateRect = (key: keyof CropRect, value: string) => {
     const n = parseInt(String(value).replace(/\D/g, ""), 10);
@@ -68,6 +108,9 @@ export function CropSidebar({
     setCropRect(clampRectToViewport(next, viewport));
   };
 
+  const maxW = viewport.w;
+  const maxH = viewport.h;
+
   return (
     <div
       id="react-pixcraft-panel-crop"
@@ -75,6 +118,77 @@ export function CropSidebar({
       aria-labelledby="react-pixcraft-tab-crop"
       style={SIDEBAR_STYLE}
     >
+      <div style={{ marginBottom: 16 }}>
+        <div style={SECTION_LABEL_STYLE}>{labels.rotation}</div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginBottom: 8,
+          }}
+        >
+          <button
+            type="button"
+            style={{ ...ib, opacity: disabledTransform ? 0.5 : 1 }}
+            onClick={onRotateLeft}
+            disabled={disabledTransform}
+            aria-label={labels.rotateLeft}
+            title={labels.rotateLeft}
+          >
+            ↺
+          </button>
+          <button
+            type="button"
+            style={{ ...ib, opacity: disabledTransform ? 0.5 : 1 }}
+            onClick={onRotateRight}
+            disabled={disabledTransform}
+            aria-label={labels.rotateRight}
+            title={labels.rotateRight}
+          >
+            ↻
+          </button>
+          <button
+            type="button"
+            style={{ ...ib, opacity: disabledTransform ? 0.5 : 1 }}
+            onClick={onRotate180}
+            disabled={disabledTransform}
+            aria-label={labels.rotate180}
+            title={labels.rotate180}
+          >
+            ⟲
+          </button>
+          <button
+            type="button"
+            style={{ ...ib, opacity: disabledTransform ? 0.5 : 1 }}
+            onClick={onFlipHorizontal}
+            disabled={disabledTransform}
+            aria-label={labels.flipHorizontal}
+            title={labels.flipHorizontal}
+          >
+            ↔
+          </button>
+          <button
+            type="button"
+            style={{ ...ib, opacity: disabledTransform ? 0.5 : 1 }}
+            onClick={onFlipVertical}
+            disabled={disabledTransform}
+            aria-label={labels.flipVertical}
+            title={labels.flipVertical}
+          >
+            ↕
+          </button>
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--rp-text-muted)",
+          }}
+        >
+          {labels.currentAngle}: {rotationDeg}°
+        </div>
+      </div>
+
       <div style={{ marginBottom: 16 }}>
         <div style={SECTION_LABEL_STYLE}>{labels.cropMode}</div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -87,10 +201,13 @@ export function CropSidebar({
               border: "1px solid var(--rp-border)",
               borderRadius: 6,
               background:
-                cropModeType === "free" ? "var(--rp-primary)" : "var(--rp-input-bg)",
+                cropModeType === "free"
+                  ? "var(--rp-primary)"
+                  : "var(--rp-input-bg)",
               color: cropModeType === "free" ? "white" : "var(--rp-text)",
               cursor: "pointer",
               fontSize: 13,
+              minHeight: compact ? 44 : undefined,
             }}
           >
             {labels.cropModeFree}
@@ -104,10 +221,13 @@ export function CropSidebar({
               border: "1px solid var(--rp-border)",
               borderRadius: 6,
               background:
-                cropModeType === "fixed" ? "var(--rp-primary)" : "var(--rp-input-bg)",
+                cropModeType === "fixed"
+                  ? "var(--rp-primary)"
+                  : "var(--rp-input-bg)",
               color: cropModeType === "fixed" ? "white" : "var(--rp-text)",
               cursor: "pointer",
               fontSize: 13,
+              minHeight: compact ? 44 : undefined,
             }}
           >
             {labels.cropModeFixed}
@@ -133,10 +253,13 @@ export function CropSidebar({
                     padding: "6px 10px",
                     border: `1px solid ${isSelected ? "var(--rp-primary)" : "var(--rp-border)"}`,
                     borderRadius: 6,
-                    background: isSelected ? "var(--rp-surface)" : "var(--rp-input-bg)",
+                    background: isSelected
+                      ? "var(--rp-surface)"
+                      : "var(--rp-input-bg)",
                     color: "var(--rp-text)",
                     cursor: "pointer",
                     fontSize: 12,
+                    minHeight: compact ? 40 : undefined,
                   }}
                 >
                   {preset.label}
@@ -146,7 +269,7 @@ export function CropSidebar({
           </div>
         </div>
       ) : null}
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16, flex: 1 }}>
         <div style={SECTION_LABEL_STYLE}>{labels.selection}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           <div>
@@ -162,12 +285,24 @@ export function CropSidebar({
             </label>
             <input
               type="text"
+              inputMode="numeric"
               style={{ ...inputStyle, width: "100%" }}
               value={r ? Math.round(r.x) : ""}
               onChange={(e) => updateRect("x", e.target.value)}
               placeholder="0"
               disabled={!baseURL}
+              aria-invalid={r !== null && (r.x < 0 || r.x > maxW)}
             />
+            <span
+              style={{
+                fontSize: 10,
+                color: "var(--rp-text-muted)",
+                display: "block",
+                marginTop: 2,
+              }}
+            >
+              Max: {maxW}px
+            </span>
           </div>
           <div>
             <label
@@ -182,12 +317,23 @@ export function CropSidebar({
             </label>
             <input
               type="text"
+              inputMode="numeric"
               style={{ ...inputStyle, width: "100%" }}
               value={r ? Math.round(r.y) : ""}
               onChange={(e) => updateRect("y", e.target.value)}
               placeholder="0"
               disabled={!baseURL}
             />
+            <span
+              style={{
+                fontSize: 10,
+                color: "var(--rp-text-muted)",
+                display: "block",
+                marginTop: 2,
+              }}
+            >
+              Max: {maxH}px
+            </span>
           </div>
           <div>
             <label
@@ -202,12 +348,23 @@ export function CropSidebar({
             </label>
             <input
               type="text"
+              inputMode="numeric"
               style={{ ...inputStyle, width: "100%" }}
               value={r ? Math.round(r.width) : ""}
               onChange={(e) => updateRect("width", e.target.value)}
               placeholder="px"
               disabled={!baseURL}
             />
+            <span
+              style={{
+                fontSize: 10,
+                color: "var(--rp-text-muted)",
+                display: "block",
+                marginTop: 2,
+              }}
+            >
+              Max: {maxW}px
+            </span>
           </div>
           <div>
             <label
@@ -222,16 +379,27 @@ export function CropSidebar({
             </label>
             <input
               type="text"
+              inputMode="numeric"
               style={{ ...inputStyle, width: "100%" }}
               value={r ? Math.round(r.height) : ""}
               onChange={(e) => updateRect("height", e.target.value)}
               placeholder="px"
               disabled={!baseURL}
             />
+            <span
+              style={{
+                fontSize: 10,
+                color: "var(--rp-text-muted)",
+                display: "block",
+                marginTop: 2,
+              }}
+            >
+              Max: {maxH}px
+            </span>
           </div>
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
         <button
           type="button"
           style={primaryBtn}

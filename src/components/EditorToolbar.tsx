@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useRef } from "react";
 import type { ImageEditorLabels, ImageEditorStyles } from "../types";
 import type { TabId } from "../constants";
 
@@ -16,8 +16,12 @@ export interface EditorToolbarProps {
   labels: ImageEditorLabels;
   classNameToolbar?: string;
   styles?: ImageEditorStyles;
+  compact?: boolean;
 }
 
+/**
+ * Tab list with arrow-key navigation (roving tabindex).
+ */
 export function EditorToolbar({
   tabs,
   activeTab,
@@ -26,18 +30,64 @@ export function EditorToolbar({
   labels,
   classNameToolbar,
   styles,
+  compact = false,
 }: EditorToolbarProps) {
+  const tablistRef = useRef<HTMLDivElement>(null);
+
+  const focusTabIndex = useCallback((idx: number) => {
+    const root = tablistRef.current;
+    if (!root) return;
+    const buttons = root.querySelectorAll<HTMLButtonElement>(
+      '[role="tab"]'
+    );
+    const el = buttons[idx];
+    el?.focus();
+  }, []);
+
+  const onTabListKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const ids = tabs.map((t) => t.id);
+      const cur = ids.indexOf(activeTab as TabId);
+      if (cur < 0) return;
+
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const next = (cur + 1) % ids.length;
+        onTabChange(ids[next]);
+        requestAnimationFrame(() => focusTabIndex(next));
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const prev = (cur - 1 + ids.length) % ids.length;
+        onTabChange(ids[prev]);
+        requestAnimationFrame(() => focusTabIndex(prev));
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        onTabChange(ids[0]);
+        requestAnimationFrame(() => focusTabIndex(0));
+      } else if (e.key === "End") {
+        e.preventDefault();
+        const last = ids.length - 1;
+        onTabChange(ids[last]);
+        requestAnimationFrame(() => focusTabIndex(last));
+      }
+    },
+    [tabs, activeTab, onTabChange, focusTabIndex]
+  );
+
   return (
     <div
+      ref={tablistRef}
       className={classNameToolbar}
       role="tablist"
       aria-label={labels.title}
+      onKeyDown={onTabListKeyDown}
       style={{
         display: "flex",
         alignItems: "stretch",
         gap: 0,
         marginBottom: 16,
         borderBottom: "1px solid var(--rp-border)",
+        flexWrap: compact ? "wrap" : "nowrap",
         ...styles?.toolbar,
       }}
     >
@@ -54,7 +104,8 @@ export function EditorToolbar({
             tabIndex={isActive ? 0 : -1}
             onClick={() => onTabChange(id)}
             style={{
-              padding: "10px 16px",
+              padding: compact ? "12px 14px" : "10px 16px",
+              minHeight: compact ? 44 : undefined,
               border: "none",
               borderBottom: isActive
                 ? "2px solid var(--rp-primary)"
@@ -77,7 +128,9 @@ export function EditorToolbar({
         aria-label={labels.close}
         onClick={onClose}
         style={{
-          padding: "8px 12px",
+          padding: compact ? "12px 14px" : "8px 12px",
+          minWidth: compact ? 44 : undefined,
+          minHeight: compact ? 44 : undefined,
           border: "none",
           background: "transparent",
           color: "var(--rp-text-muted)",

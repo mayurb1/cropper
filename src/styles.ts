@@ -18,9 +18,36 @@ export const primaryBtn: CSSProperties = {
   color: "white",
 };
 
+/** Secondary outline (e.g. Upload). */
+export const outlineBtn: CSSProperties = {
+  ...baseBtn,
+  border: "1px solid var(--rp-primary)",
+  background: "transparent",
+  color: "var(--rp-primary)",
+};
+
+/** Text / ghost (e.g. Cancel). */
+export const ghostBtn: CSSProperties = {
+  padding: "8px 12px",
+  border: "none",
+  background: "transparent",
+  color: "var(--rp-text-muted)",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 14,
+};
+
 export function getBtnDisabledStyle(disabled: boolean): CSSProperties {
   return {
     ...baseBtn,
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? "not-allowed" : "pointer",
+  };
+}
+
+export function getGhostDisabledStyle(disabled: boolean): CSSProperties {
+  return {
+    ...ghostBtn,
     opacity: disabled ? 0.5 : 1,
     cursor: disabled ? "not-allowed" : "pointer",
   };
