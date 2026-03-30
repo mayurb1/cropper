@@ -32,6 +32,7 @@ export const DEFAULT_LABELS = {
   height: "Height",
   aspectRatioHint: "Aspect ratio (e.g. 16/9)",
   selectOrUpload: "Select or upload an image to begin",
+  dropImageHint: "or drag an image here",
   imageLoaded: "Image loaded",
   originalDimensions: "Original",
   currentView: "View",

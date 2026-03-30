@@ -1,6 +1,7 @@
 export { ImageEditor } from "./ImageEditor";
 export type {
   ImageEditorProps,
+  ImageEditorPreviewFit,
   ImageEditorLabels,
   ImageEditorStyles,
   ImageEditorTheme,

@@ -7,6 +7,7 @@
  * @param props.showFiltersTab - Show the Filters tab (default: `true`).
  * @param props.showExportTab - Show the Export tab (default: `true`).
  * @param props.batch - Optional list of images; shows a filmstrip and “Apply to all” on resize/scale.
+ * @param props.previewFit - `"contain"` scales the preview to fit `maxViewport`; `"natural"` draws at 1:1 image pixels with a fixed scroll port (`canvasFrame` or `maxViewport`).
  * @param props.shortcutsRequireFocus - When `true`, keyboard shortcuts only apply after the user has focused or clicked inside the editor. Defaults to `true` when `modal` is `false`, and `false` when `modal` is `true`.
  *
  * @example
@@ -23,6 +24,7 @@
 import React, {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -77,6 +79,7 @@ import {
   ShortcutsModal,
 } from "./components";
 import type { EditorToolbarTab } from "./components";
+import { outlineBtn } from "./styles";
 
 const DEFAULT_FILTER: FilterConfig = {
   brightness: 1,
@@ -112,6 +115,7 @@ export function ImageEditor({
   file,
   maxViewport = DEFAULT_VIEWPORT,
   canvasFrame,
+  previewFit = "contain",
   onExport,
   onClose,
   mime = "image/png",
@@ -135,7 +139,9 @@ export function ImageEditor({
   const modalContentRef = useRef<HTMLDivElement>(null);
   const editorRootRef = useRef<HTMLDivElement>(null);
   const editorHasFocusRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const emptyUploadInputRef = useRef<HTMLInputElement>(null);
+  const emptyDropDepthRef = useRef(0);
+  const emptyUploadInputId = useId();
   const workerRef = useRef<Worker | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
@@ -146,6 +152,7 @@ export function ImageEditor({
   const [processing, setProcessing] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
+  const [emptyStateDragActive, setEmptyStateDragActive] = useState(false);
   const [filter, setFilter] = useState<FilterConfig>(DEFAULT_FILTER);
   const [exportMime, setExportMime] = useState<ExportImageFormat>(() =>
     isExportMime(mime) ? mime : "image/png"
@@ -327,7 +334,10 @@ export function ImageEditor({
     const imgH = imgSize.height || 1;
     const maxW = maxViewport.width;
     const maxH = maxViewport.height;
-    const scale = Math.min(maxW / imgW, maxH / imgH, 1);
+    const scale =
+      previewFit === "natural"
+        ? 1
+        : Math.min(maxW / imgW, maxH / imgH, 1);
     const drawW = imgW * scale;
     const drawH = imgH * scale;
     const { width: bw, height: bh } = axisAlignedBoundsForRotatedRect(
@@ -338,7 +348,18 @@ export function ImageEditor({
     const w = Math.max(1, Math.ceil(bw - 1e-9));
     const h = Math.max(1, Math.ceil(bh - 1e-9));
     return { w, h, scale };
-  }, [imgSize, maxViewport.width, maxViewport.height, rotation]);
+  }, [
+    imgSize,
+    maxViewport.width,
+    maxViewport.height,
+    rotation,
+    previewFit,
+  ]);
+
+  const canvasScrollPort =
+    previewFit === "natural"
+      ? (canvasFrame ?? maxViewport)
+      : canvasFrame ?? null;
 
   const canvasStyle = useMemo((): CSSProperties => {
     const base: CSSProperties = {
@@ -350,14 +371,14 @@ export function ImageEditor({
       backgroundPosition: "0 0, 8px 8px",
       borderRadius: 8,
     };
-    if (canvasFrame) {
+    if (canvasScrollPort) {
       base.maxWidth = "none";
     } else {
       base.maxWidth = "100%";
       base.height = "auto";
     }
     return base;
-  }, [canvasFrame]);
+  }, [canvasScrollPort]);
 
   useEffect(() => {
     setRotation(0);
@@ -1038,16 +1059,59 @@ export function ImageEditor({
     cancelToFirst();
   }, [cancelToFirst]);
 
-  const onPickFile = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const f = e.target.files?.[0];
-      if (!f) return;
+  const applyPickedFile = useCallback(
+    (f: File) => {
+      if (!f.type.startsWith("image/")) return;
       setUploadedFile(f);
       setHistory([]);
       setRedoStack([]);
-      e.target.value = "";
     },
     [setHistory, setRedoStack]
+  );
+
+  const onPickFile = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      if (f) applyPickedFile(f);
+      e.target.value = "";
+    },
+    [applyPickedFile]
+  );
+
+  const onEmptyStateDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    emptyDropDepthRef.current += 1;
+    if (emptyDropDepthRef.current === 1) setEmptyStateDragActive(true);
+  }, []);
+
+  const onEmptyStateDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    emptyDropDepthRef.current -= 1;
+    if (emptyDropDepthRef.current <= 0) {
+      emptyDropDepthRef.current = 0;
+      setEmptyStateDragActive(false);
+    }
+  }, []);
+
+  const onEmptyStateDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const onEmptyStateDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      emptyDropDepthRef.current = 0;
+      setEmptyStateDragActive(false);
+      const image = Array.from(e.dataTransfer.files).find((f) =>
+        f.type.startsWith("image/")
+      );
+      if (image) applyPickedFile(image);
+    },
+    [applyPickedFile]
   );
 
   const isEditableTarget = useCallback((target: EventTarget | null) => {
@@ -1241,6 +1305,19 @@ export function ImageEditor({
       />
 
       <div
+        style={
+          modal
+            ? {
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
+                minHeight: 0,
+                overflow: "hidden",
+              }
+            : { display: "contents" }
+        }
+      >
+      <div
         style={{
           display: "flex",
           alignItems: "center",
@@ -1248,6 +1325,7 @@ export function ImageEditor({
           marginBottom: 8,
           flexWrap: "wrap",
           gap: 8,
+          ...(modal ? { flexShrink: 0 } : {}),
         }}
       >
         <div>
@@ -1284,27 +1362,51 @@ export function ImageEditor({
         ) : null}
       </div>
 
-      <EditorToolbar
-        tabs={editorTabs}
-        activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
-        onClose={handleClose}
-        labels={labels}
-        classNameToolbar={classNameToolbar}
-        styles={stylesProp}
-        compact={compact}
-      />
+      <div
+        style={modal ? { flexShrink: 0 } : { display: "contents" }}
+      >
+        <EditorToolbar
+          tabs={editorTabs}
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab)}
+          onClose={handleClose}
+          labels={labels}
+          classNameToolbar={classNameToolbar}
+          styles={stylesProp}
+          compact={compact}
+        />
+      </div>
 
+      <div
+        style={
+          modal
+            ? {
+                flex: 1,
+                minHeight: 0,
+                minWidth: 0,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+              }
+            : { display: "contents" }
+        }
+      >
       <div
         style={{
           display: "flex",
           flexDirection: "row",
           flexWrap: "nowrap",
           gap: 16,
-          alignItems: "flex-start",
+          alignItems: modal ? "stretch" : "flex-start",
           width: "100%",
           minWidth: 0,
-          overflowX: "auto",
+          ...(modal
+            ? {
+                flex: 1,
+                minHeight: 0,
+                overflow: "hidden",
+              }
+            : { overflowX: "auto" }),
         }}
       >
         {batchPreviewEntries.length > 0 ? (
@@ -1358,6 +1460,7 @@ export function ImageEditor({
           style={{
             flex: sidebarActive ? "1 1 0" : "1 1 100%",
             minWidth: 0,
+            ...(modal ? { minHeight: 0, overflow: "auto" } : {}),
           }}
         >
           <div
@@ -1367,22 +1470,86 @@ export function ImageEditor({
               borderRadius: 12,
               padding: 12,
               background: "var(--rp-surface)",
-              minHeight: compact ? 200 : 280,
+              minHeight: canvasScrollPort
+                ? canvasScrollPort.height + 24
+                : compact
+                  ? 200
+                  : 280,
               ...stylesProp?.canvasWrapper,
             }}
           >
             {!baseURL ? (
               <div
+                role="region"
+                aria-label={labels.selectOrUpload}
+                aria-describedby={`${emptyUploadInputId}-hint`}
+                tabIndex={0}
+                onDragEnter={onEmptyStateDragEnter}
+                onDragLeave={onEmptyStateDragLeave}
+                onDragOver={onEmptyStateDragOver}
+                onDrop={onEmptyStateDrop}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    emptyUploadInputRef.current?.click();
+                  }
+                }}
                 style={{
-                  minHeight: 320,
+                  minHeight: compact ? 200 : 320,
                   display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
+                  gap: 16,
+                  padding: 24,
+                  borderRadius: 8,
+                  border: `2px dashed ${
+                    emptyStateDragActive
+                      ? "var(--rp-primary)"
+                      : "var(--rp-border)"
+                  }`,
+                  background: emptyStateDragActive
+                    ? "color-mix(in srgb, var(--rp-primary) 10%, transparent)"
+                    : "transparent",
                   color: "var(--rp-text-muted)",
                   fontSize: 14,
+                  textAlign: "center",
+                  outline: "none",
+                  boxSizing: "border-box",
                 }}
               >
-                {labels.selectOrUpload}
+                <span
+                  style={{
+                    color: "var(--rp-text)",
+                    fontSize: 14,
+                    maxWidth: 320,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {labels.selectOrUpload}
+                </span>
+                <span id={`${emptyUploadInputId}-hint`} style={{ fontSize: 13 }}>
+                  {labels.dropImageHint}
+                </span>
+                <input
+                  ref={emptyUploadInputRef}
+                  id={emptyUploadInputId}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={onPickFile}
+                  aria-hidden
+                />
+                <button
+                  type="button"
+                  style={{
+                    ...outlineBtn,
+                    minHeight: compact ? 44 : undefined,
+                  }}
+                  onClick={() => emptyUploadInputRef.current?.click()}
+                >
+                  {labels.upload}
+                </button>
               </div>
             ) : isLoading ? (
               <div
@@ -1420,13 +1587,13 @@ export function ImageEditor({
                   })()}
                 <div
                   className={
-                    canvasFrame ? classNameCanvasScrollArea : undefined
+                    canvasScrollPort ? classNameCanvasScrollArea : undefined
                   }
                   style={
-                    canvasFrame
+                    canvasScrollPort
                       ? {
-                          width: canvasFrame.width,
-                          height: canvasFrame.height,
+                          width: canvasScrollPort.width,
+                          height: canvasScrollPort.height,
                           overflow: "auto",
                           ...stylesProp?.canvasScrollArea,
                         }
@@ -1560,13 +1727,18 @@ export function ImageEditor({
               flexShrink: 0,
               minWidth: 280,
               maxWidth: "100%",
+              minHeight: 0,
+              maxHeight: "100%",
+              overflowY: "auto",
             }}
           >
             {customTab.content}
           </div>
         )}
       </div>
+      </div>
 
+      <div style={modal ? { flexShrink: 0 } : { display: "contents" }}>
       <HistoryPanel
         history={history}
         onJumpTo={jumpToHistory}
@@ -1574,17 +1746,17 @@ export function ImageEditor({
         expanded={historyPanelOpen}
         onToggle={() => setHistoryPanelOpen((v) => !v)}
       />
+      </div>
 
+      <div style={modal ? { flexShrink: 0 } : { display: "contents" }}>
       <EditorFooter
         historyLength={history.length}
         redoLength={redoStack.length}
         onUndo={undo}
         onRedo={redoAction}
         onCancel={onCancel}
-        onPickFile={onPickFile}
         onSave={onSave}
         labels={labels}
-        fileInputRef={fileInputRef}
         onToggleHistory={() => setHistoryPanelOpen((v) => !v)}
         historyPanelOpen={historyPanelOpen}
         showBatchApply={batchItems.length > 1}
@@ -1599,6 +1771,8 @@ export function ImageEditor({
         }
         compact={compact}
       />
+      </div>
+      </div>
     </>
   );
 
@@ -1639,9 +1813,13 @@ export function ImageEditor({
       .trim();
 
     const modalPanelStyle: CSSProperties = {
-      maxWidth: "95vw",
-      maxHeight: "95vh",
-      overflow: "auto",
+      width: "min(1040px, calc(100vw - 32px))",
+      height: "min(900px, calc(100vh - 32px))",
+      maxHeight: "calc(100vh - 32px)",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      boxSizing: "border-box",
       position: "relative",
       boxShadow: "var(--rp-shadow)",
       border: "1px solid var(--rp-border)",

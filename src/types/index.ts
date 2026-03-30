@@ -37,6 +37,8 @@ export interface ImageEditorLabels {
   height?: string;
   aspectRatioHint?: string;
   selectOrUpload?: string;
+  /** Shown under the empty-state prompt when drag-and-drop is available */
+  dropImageHint?: string;
   imageLoaded?: string;
   originalDimensions?: string;
   currentView?: string;
@@ -124,12 +126,15 @@ export interface ImageEditorBatchItem {
   label?: string;
 }
 
+/** How the preview canvas scales relative to the source image. */
+export type ImageEditorPreviewFit = "contain" | "natural";
+
 export interface ImageEditorStyles {
   root?: CSSProperties;
   card?: CSSProperties;
   toolbar?: CSSProperties;
   canvasWrapper?: CSSProperties;
-  /** Scrollable region when `canvasFrame` is set */
+  /** Scrollable region when `canvasFrame` is set or `previewFit` is `"natural"` */
   canvasScrollArea?: CSSProperties;
   overlay?: CSSProperties;
   modal?: CSSProperties;
@@ -140,12 +145,22 @@ export interface ImageEditorProps {
   src?: string | null;
   /** File to edit (e.g. from an input). Creates and revokes object URL internally. */
   file?: File | null;
+  /**
+   * When `previewFit` is `"contain"`, caps preview scale so the image fits inside this box.
+   * When `previewFit` is `"natural"`, sizes the scroll viewport if `canvasFrame` is omitted.
+   */
   maxViewport?: { width: number; height: number };
   /**
-   * Fixed width and height of the image area. When the scaled canvas exceeds this box,
-   * scrollbars appear. Omit for responsive layout (`maxWidth: 100%` on the canvas).
+   * Fixed width and height of the scrollable image area. When the canvas exceeds this box,
+   * scrollbars appear. If omitted with `previewFit: "natural"`, `maxViewport` is used as the scroll port.
+   * With `previewFit: "contain"` (default), omit for responsive layout (`maxWidth: 100%` on the canvas).
    */
   canvasFrame?: { width: number; height: number };
+  /**
+   * `"contain"` (default): scale preview to fit `maxViewport`. `"natural"`: 1:1 image pixels on the
+   * canvas; use `canvasFrame` or `maxViewport` as the fixed scroll area when the image is larger.
+   */
+  previewFit?: ImageEditorPreviewFit;
   onExport?: (
     blob: Blob,
     meta?: { width: number; height: number; mime: string; exportOptions?: ExportOptions }

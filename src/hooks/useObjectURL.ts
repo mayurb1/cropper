@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Single source of truth for image URL: from prop `file`, prop `src`, or `uploadedFile` (from Upload button).
+ * Single source of truth for image URL: from prop `file`, prop `src`, or `uploadedFile` (empty-state picker / drop).
  * Creates one object URL at a time and revokes it when switching to a new file or on unmount.
  */
 export function useObjectURL(

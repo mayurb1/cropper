@@ -13,10 +13,8 @@ export interface EditorFooterProps {
   onUndo: () => void;
   onRedo: () => void;
   onCancel: () => void;
-  onPickFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSave: () => void;
   labels: ImageEditorLabels;
-  fileInputRef: React.RefObject<HTMLInputElement>;
   onToggleHistory?: () => void;
   historyPanelOpen?: boolean;
   onBatchApplyAll?: () => void;
@@ -26,7 +24,7 @@ export interface EditorFooterProps {
 }
 
 /**
- * Bottom bar: undo/redo icons, cancel, upload, save; optional history and batch actions.
+ * Bottom bar: undo/redo icons, cancel, save; optional history and batch actions.
  */
 export function EditorFooter({
   historyLength,
@@ -34,10 +32,8 @@ export function EditorFooter({
   onUndo,
   onRedo,
   onCancel,
-  onPickFile,
   onSave,
   labels,
-  fileInputRef,
   onToggleHistory,
   historyPanelOpen,
   onBatchApplyAll,
@@ -161,24 +157,6 @@ export function EditorFooter({
             {labels.batchApplyAll}
           </button>
         ) : null}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={onPickFile}
-          aria-hidden
-        />
-        <button
-          type="button"
-          style={{
-            ...outlineBtn,
-            minHeight: compact ? 44 : undefined,
-          }}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {labels.upload}
-        </button>
         <button
           type="button"
           style={{

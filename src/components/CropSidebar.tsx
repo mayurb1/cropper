@@ -34,6 +34,9 @@ export interface CropSidebarProps {
 const SIDEBAR_STYLE: React.CSSProperties = {
   flex: "0 0 320px",
   maxWidth: "100%",
+  minHeight: 0,
+  maxHeight: "100%",
+  overflowY: "auto",
   padding: 16,
   background: "var(--rp-surface)",
   border: "1px solid var(--rp-border)",
