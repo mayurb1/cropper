@@ -15,7 +15,12 @@ export interface ImageEditorLabels {
   cropModeFree?: string;
   cropModeFixed?: string;
   aspectRatio?: string;
+  /** In-card title above crop metrics (icon + label + value rows) */
   selection?: string;
+  /** Crop area: horizontal distance from the image’s left edge (px) */
+  cropFromLeft?: string;
+  /** Crop area: vertical distance from the image’s top edge (px) */
+  cropFromTop?: string;
   discard?: string;
   editThenSave?: string;
   /** Section label for rotate / flip controls in the crop sidebar */

@@ -16,8 +16,10 @@ export function useImageLoader(baseURL: string | null) {
       setImgSize({ width: 0, height: 0 });
       return;
     }
+    let cancelled = false;
     loadImage(baseURL)
       .then((img) => {
+        if (cancelled) return;
         setLoadedImg(img);
         setImgSize({
           width: img.naturalWidth || img.width,
@@ -25,9 +27,14 @@ export function useImageLoader(baseURL: string | null) {
         });
       })
       .catch(() => {
-        setLoadedImg(null);
-        setImgSize({ width: 0, height: 0 });
+        if (!cancelled) {
+          setLoadedImg(null);
+          setImgSize({ width: 0, height: 0 });
+        }
       });
+    return () => {
+      cancelled = true;
+    };
   }, [baseURL]);
 
   const isLoading = Boolean(baseURL && !loadedImg);

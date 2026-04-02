@@ -1,4 +1,10 @@
-export { loadImage, dataUrlToBlob } from "./image";
+export {
+  loadImage,
+  dataUrlToBlob,
+  blobToDataUrl,
+  isExportMime,
+} from "./image";
+export { drawImageTransformed } from "./canvas";
 export { axisAlignedBoundsForRotatedRect } from "./geometry";
 export {
   clampRectToViewport,

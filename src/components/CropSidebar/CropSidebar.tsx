@@ -1,20 +1,16 @@
 import React from "react";
-import type { ImageEditorLabels } from "../types";
-import type { CropRect } from "../types";
-import type { Viewport } from "../types";
-import { ASPECT_PRESETS } from "../constants";
-import { getCropRectNormalized, clampRectToViewport } from "../utils/crop";
-import { baseBtn, primaryBtn, inputStyle } from "../styles";
+import type { ImageEditorLabels } from "../../types";
+import type { CropRect } from "../../types";
+import { ASPECT_PRESETS } from "../../constants";
+import { getCropRectNormalized } from "../../utils/crop";
+import { baseBtn, primaryBtn } from "../../styles";
 
 export interface CropSidebarProps {
   cropModeType: "free" | "fixed";
-  setCropModeType: (t: "free" | "fixed") => void;
   setCropModeTypeAndAspect: (t: "free" | "fixed") => void;
   aspect: number | undefined;
   setAspect: (a: number | undefined) => void;
   cropRect: CropRect | null;
-  setCropRect: (r: CropRect | null) => void;
-  viewport: Viewport;
   onApplyCrop: () => void;
   onClearCrop: () => void;
   labels: ImageEditorLabels;
@@ -71,19 +67,200 @@ const ICON_BTN = (compact: boolean): React.CSSProperties => ({
   justifyContent: "center",
 });
 
-export function CropSidebar({
+const SELECTION_PANEL_STYLE: React.CSSProperties = {
+  border: "1px solid var(--rp-border)",
+  borderRadius: 8,
+  background: "var(--rp-surface)",
+  overflow: "hidden",
+};
+
+const SELECTION_CARD_HEADER_STYLE: React.CSSProperties = {
+  padding: "10px 12px",
+  fontSize: 13,
+  fontWeight: 600,
+  color: "var(--rp-text)",
+  letterSpacing: "0.02em",
+  borderBottom: "1px solid var(--rp-border)",
+  background: "color-mix(in srgb, var(--rp-primary) 12%, var(--rp-surface))",
+};
+
+const SELECTION_ICON_CELL_STYLE: React.CSSProperties = {
+  flex: "0 0 auto",
+  width: 32,
+  height: 32,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const SELECTION_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "10px 12px",
+  fontSize: 13,
+  lineHeight: 1.35,
+};
+
+const SELECTION_ROW_LABEL_STYLE: React.CSSProperties = {
+  color: "var(--rp-text-muted)",
+  fontSize: 13,
+  flex: "1 1 auto",
+  minWidth: 0,
+};
+
+const SELECTION_ROW_VALUE_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "baseline",
+  justifyContent: "flex-end",
+  gap: 4,
+  fontVariantNumeric: "tabular-nums",
+  color: "var(--rp-text)",
+  flex: "0 0 auto",
+  textAlign: "right",
+};
+
+const SELECTION_VALUE_NUM_STYLE: React.CSSProperties = {
+  fontWeight: 600,
+  fontSize: 14,
+};
+
+const SELECTION_VALUE_UNIT_STYLE: React.CSSProperties = {
+  fontWeight: 500,
+  fontSize: 11,
+  color: "var(--rp-text-muted)",
+  letterSpacing: "0.02em",
+};
+
+const SELECTION_DIVIDER_STYLE: React.CSSProperties = {
+  height: 1,
+  margin: 0,
+  background: "var(--rp-border)",
+};
+
+const ROTATION_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginBottom: 8,
+};
+
+const MODE_ROW_STYLE: React.CSSProperties = { display: "flex", gap: 8 };
+
+const PRESET_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 6,
+};
+
+const FOOTER_ACTIONS_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  marginTop: "auto",
+};
+
+function SelectionMetricIcon({
+  kind,
+  compact,
+}: {
+  kind: "x" | "y" | "w" | "h";
+  compact: boolean;
+}) {
+  const size = compact ? 20 : 22;
+  const stroke = "var(--rp-primary)";
+  const fill = "var(--rp-primary)";
+  const sw = 1.75;
+
+  switch (kind) {
+    case "x":
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <rect x="8" y="10" width="8" height="8" rx="1.5" fill={fill} />
+        </svg>
+      );
+    case "y":
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <line
+            x1="5"
+            y1="6.5"
+            x2="19"
+            y2="6.5"
+            stroke={stroke}
+            strokeWidth={2}
+            strokeDasharray="3 2.5"
+            strokeLinecap="round"
+          />
+          <rect x="9" y="9.5" width="6" height="10" rx="1.5" fill={fill} />
+        </svg>
+      );
+    case "w":
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          aria-hidden
+          fill="none"
+        >
+          <path
+            d="M5 12h14M2 12l3.5-3M2 12l3.5 3M22 12l-3.5-3M22 12l-3.5 3"
+            stroke={stroke}
+            strokeWidth={sw}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "h":
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          aria-hidden
+          fill="none"
+        >
+          <path
+            d="M12 5v14M12 2l-3 3.5M12 2l3 3.5M12 22l-3-3.5M12 22l3-3.5"
+            stroke={stroke}
+            strokeWidth={sw}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+  }
+}
+
+/**
+ * Crop mode sidebar: rotation/flip, aspect presets, selection size (read-only), apply/clear.
+ * @example
+ * ```tsx
+ * <CropSidebar cropModeType="free" setCropModeTypeAndAspect={fn} ... />
+ * ```
+ */
+export const CropSidebar = React.memo(function CropSidebar({
   cropModeType,
   setCropModeTypeAndAspect,
   aspect,
   setAspect,
   cropRect,
-  setCropRect,
-  viewport,
   onApplyCrop,
   onClearCrop,
   labels,
   baseURL,
-  setCropModeType,
   rotationDeg,
   onRotateLeft,
   onRotateRight,
@@ -101,18 +278,29 @@ export function CropSidebar({
   const disabledTransform = transformDisabled || !baseURL;
   const ib = ICON_BTN(compact);
 
-  const updateRect = (key: keyof CropRect, value: string) => {
-    const n = parseInt(String(value).replace(/\D/g, ""), 10);
-    if (Number.isNaN(n)) return;
-    const next = r
-      ? { ...r }
-      : { x: 0, y: 0, width: viewport.w, height: viewport.h };
-    next[key] = key === "x" || key === "y" ? n : Math.max(1, n);
-    setCropRect(clampRectToViewport(next, viewport));
+  const selectionRow = (extra?: React.CSSProperties): React.CSSProperties => ({
+    ...SELECTION_ROW_STYLE,
+    padding: compact ? "8px 10px" : "10px 12px",
+    ...extra,
+  });
+
+  const iconCellStyle: React.CSSProperties = {
+    ...SELECTION_ICON_CELL_STYLE,
+    width: compact ? 28 : 32,
+    height: compact ? 28 : 32,
   };
 
-  const maxW = viewport.w;
-  const maxH = viewport.h;
+  const formatPx = (n: number | undefined) =>
+    n !== undefined ? (
+      <span style={SELECTION_ROW_VALUE_STYLE}>
+        <span style={SELECTION_VALUE_NUM_STYLE}>{Math.round(n)}</span>
+        <span style={SELECTION_VALUE_UNIT_STYLE}>px</span>
+      </span>
+    ) : (
+      <span style={SELECTION_ROW_VALUE_STYLE}>
+        <span style={SELECTION_VALUE_NUM_STYLE}>—</span>
+      </span>
+    );
 
   return (
     <div
@@ -123,14 +311,7 @@ export function CropSidebar({
     >
       <div style={{ marginBottom: 16 }}>
         <div style={SECTION_LABEL_STYLE}>{labels.rotation}</div>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginBottom: 8,
-          }}
-        >
+        <div style={ROTATION_ROW_STYLE}>
           <button
             type="button"
             style={{ ...ib, opacity: disabledTransform ? 0.5 : 1 }}
@@ -194,7 +375,7 @@ export function CropSidebar({
 
       <div style={{ marginBottom: 16 }}>
         <div style={SECTION_LABEL_STYLE}>{labels.cropMode}</div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={MODE_ROW_STYLE}>
           <button
             type="button"
             onClick={() => setCropModeTypeAndAspect("free")}
@@ -240,7 +421,7 @@ export function CropSidebar({
       {cropModeType === "fixed" ? (
         <div style={{ marginBottom: 16 }}>
           <div style={SECTION_LABEL_STYLE}>{labels.aspectRatio}</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <div style={PRESET_ROW_STYLE}>
             {ASPECT_PRESETS.map((preset) => {
               const isSelected =
                 aspect !== undefined && Math.abs(aspect - preset.value) < 1e-6;
@@ -249,7 +430,7 @@ export function CropSidebar({
                   key={preset.label}
                   type="button"
                   onClick={() => {
-                    setCropModeType("fixed");
+                    setCropModeTypeAndAspect("fixed");
                     setAspect(preset.value);
                   }}
                   style={{
@@ -273,136 +454,60 @@ export function CropSidebar({
         </div>
       ) : null}
       <div style={{ marginBottom: 16, flex: 1 }}>
-        <div style={SECTION_LABEL_STYLE}>{labels.selection}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <div>
-            <label
-              style={{
-                fontSize: 11,
-                color: "var(--rp-text-muted)",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              X
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              style={{ ...inputStyle, width: "100%" }}
-              value={r ? Math.round(r.x) : ""}
-              onChange={(e) => updateRect("x", e.target.value)}
-              placeholder="0"
-              disabled={!baseURL}
-              aria-invalid={r !== null && (r.x < 0 || r.x > maxW)}
-            />
-            <span
-              style={{
-                fontSize: 10,
-                color: "var(--rp-text-muted)",
-                display: "block",
-                marginTop: 2,
-              }}
-            >
-              Max: {maxW}px
-            </span>
+        <div
+          style={{
+            ...SELECTION_PANEL_STYLE,
+            opacity: !baseURL ? 0.55 : 1,
+          }}
+          aria-live="polite"
+        >
+          <div style={SELECTION_CARD_HEADER_STYLE}>
+            {labels.selection ?? "Selection"}
           </div>
-          <div>
-            <label
-              style={{
-                fontSize: 11,
-                color: "var(--rp-text-muted)",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              Y
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              style={{ ...inputStyle, width: "100%" }}
-              value={r ? Math.round(r.y) : ""}
-              onChange={(e) => updateRect("y", e.target.value)}
-              placeholder="0"
-              disabled={!baseURL}
-            />
-            <span
-              style={{
-                fontSize: 10,
-                color: "var(--rp-text-muted)",
-                display: "block",
-                marginTop: 2,
-              }}
-            >
-              Max: {maxH}px
+          <div
+            style={selectionRow({ borderBottom: "1px solid var(--rp-border)" })}
+          >
+            <span style={iconCellStyle}>
+              <SelectionMetricIcon kind="x" compact={compact} />
             </span>
+            <span style={SELECTION_ROW_LABEL_STYLE}>
+              {labels.cropFromLeft ?? "X (From left)"}
+            </span>
+            {formatPx(r?.x)}
           </div>
-          <div>
-            <label
-              style={{
-                fontSize: 11,
-                color: "var(--rp-text-muted)",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              W
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              style={{ ...inputStyle, width: "100%" }}
-              value={r ? Math.round(r.width) : ""}
-              onChange={(e) => updateRect("width", e.target.value)}
-              placeholder="px"
-              disabled={!baseURL}
-            />
-            <span
-              style={{
-                fontSize: 10,
-                color: "var(--rp-text-muted)",
-                display: "block",
-                marginTop: 2,
-              }}
-            >
-              Max: {maxW}px
+          <div style={selectionRow()}>
+            <span style={iconCellStyle}>
+              <SelectionMetricIcon kind="y" compact={compact} />
             </span>
+            <span style={SELECTION_ROW_LABEL_STYLE}>
+              {labels.cropFromTop ?? "Y (From top)"}
+            </span>
+            {formatPx(r?.y)}
           </div>
-          <div>
-            <label
-              style={{
-                fontSize: 11,
-                color: "var(--rp-text-muted)",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              H
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              style={{ ...inputStyle, width: "100%" }}
-              value={r ? Math.round(r.height) : ""}
-              onChange={(e) => updateRect("height", e.target.value)}
-              placeholder="px"
-              disabled={!baseURL}
-            />
-            <span
-              style={{
-                fontSize: 10,
-                color: "var(--rp-text-muted)",
-                display: "block",
-                marginTop: 2,
-              }}
-            >
-              Max: {maxH}px
+          <div style={SELECTION_DIVIDER_STYLE} role="presentation" />
+          <div
+            style={selectionRow({ borderBottom: "1px solid var(--rp-border)" })}
+          >
+            <span style={iconCellStyle}>
+              <SelectionMetricIcon kind="w" compact={compact} />
             </span>
+            <span style={SELECTION_ROW_LABEL_STYLE}>
+              {labels.width ?? "Width"}
+            </span>
+            {formatPx(r?.width)}
+          </div>
+          <div style={selectionRow()}>
+            <span style={iconCellStyle}>
+              <SelectionMetricIcon kind="h" compact={compact} />
+            </span>
+            <span style={SELECTION_ROW_LABEL_STYLE}>
+              {labels.height ?? "Height"}
+            </span>
+            {formatPx(r?.height)}
           </div>
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
+      <div style={FOOTER_ACTIONS_STYLE}>
         <button
           type="button"
           style={primaryBtn}
@@ -419,4 +524,5 @@ export function CropSidebar({
       </div>
     </div>
   );
-}
+});
+  

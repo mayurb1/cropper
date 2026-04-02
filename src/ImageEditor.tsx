@@ -25,7 +25,6 @@ import React, {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -41,25 +40,18 @@ import type {
 import {
   DEFAULT_VIEWPORT,
   DEFAULT_LABELS,
-  CROP_HANDLE_SIZE,
   CORE_TABS,
   CUSTOM_TAB_ID,
   FILTERS_TAB_ID,
   EXPORT_TAB_ID,
+  DEFAULT_FILTER,
 } from "./constants";
 import type { TabId } from "./constants";
-import { loadImage, dataUrlToBlob } from "./utils/image";
+import { loadImage, isExportMime } from "./utils/image";
 import { axisAlignedBoundsForRotatedRect } from "./utils/geometry";
-import {
-  getCropRectNormalized,
-  clampRectToViewport,
-  normalizeFromPoints,
-  hitTestCropHandle,
-  resizeCropRectFromHandle,
-} from "./utils/crop";
-import type { CropHandle } from "./utils/crop";
+import { getCropRectNormalized } from "./utils/crop";
+import { drawImageTransformed } from "./utils/canvas";
 import { buildCanvasFilterString, isFilterDefault } from "./utils/filterString";
-import { createImageResizeWorker } from "./utils/createImageResizeWorker";
 import { validateDimension } from "./utils/validation";
 import { useTheme } from "./hooks/useTheme";
 import { useImageLoader } from "./hooks/useImageLoader";
@@ -67,6 +59,32 @@ import { useObjectURL } from "./hooks/useObjectURL";
 import { useEditorHistory } from "./hooks/useEditorHistory";
 import { useToast } from "./hooks/useToast";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { useCanvasRenderer } from "./hooks/useCanvasRenderer";
+import { useCropInteraction } from "./hooks/useCropInteraction";
+import { useTransformActions } from "./hooks/useTransformActions";
+import { useExportActions } from "./hooks/useExportActions";
+import {
+  FOCUSABLE_SELECTOR,
+  liveRegionStyle,
+  toastFixedStyle,
+  modalInnerColumnStyle,
+  displayContentsStyle,
+  headerRowStyle,
+  titleStyle,
+  subtitleStyle,
+  processingHeaderStyle,
+  mainRowStyle,
+  batchStripStyle,
+  canvasColumnStyle,
+  customTabPanelStyle,
+  cropOverlayHintStyle,
+  viewportHintStyle,
+  loadingCanvasPlaceholderStyle,
+  editorRootStyle,
+  inlineCardStyle,
+  overlayStyle,
+  modalShellStyle,
+} from "./ImageEditor.styles";
 import {
   EditorToolbar,
   CropSidebar,
@@ -80,35 +98,6 @@ import {
 } from "./components";
 import type { EditorToolbarTab } from "./components";
 import { outlineBtn } from "./styles";
-
-const DEFAULT_FILTER: FilterConfig = {
-  brightness: 1,
-  contrast: 1,
-  saturation: 1,
-  grayscale: 0,
-  sepia: 0,
-  blurPx: 0,
-};
-
-const WORKER_PIXEL_THRESHOLD = 4_000_000;
-
-function isExportMime(m: string): m is ExportImageFormat {
-  return (
-    m === "image/jpeg" ||
-    m === "image/png" ||
-    m === "image/webp" ||
-    m === "image/avif"
-  );
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(new Error("read failed"));
-    r.readAsDataURL(blob);
-  });
-}
 
 export function ImageEditor({
   src,
@@ -135,14 +124,12 @@ export function ImageEditor({
   batch,
   shortcutsRequireFocus: shortcutsRequireFocusProp,
 }: ImageEditorProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const modalContentRef = useRef<HTMLDivElement>(null);
   const editorRootRef = useRef<HTMLDivElement>(null);
   const editorHasFocusRef = useRef(false);
   const emptyUploadInputRef = useRef<HTMLInputElement>(null);
   const emptyDropDepthRef = useRef(0);
   const emptyUploadInputId = useId();
-  const workerRef = useRef<Worker | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const [open, setOpen] = useState(true);
@@ -179,19 +166,21 @@ export function ImageEditor({
     [batchItems]
   );
 
-  const batchPreviewEntries = useMemo(() => {
-    return batchItems.map((item, i) => ({
+  const [batchPreviewEntries, setBatchPreviewEntries] = useState<
+    { i: number; url: string; label: string }[]
+  >([]);
+
+  useEffect(() => {
+    const entries = batchItems.map((item, i) => ({
       i,
       url: URL.createObjectURL(item.file),
       label: item.label ?? item.file.name,
     }));
-  }, [batchKey, batchItems]);
-
-  useEffect(() => {
+    setBatchPreviewEntries(entries);
     return () => {
-      batchPreviewEntries.forEach((e) => URL.revokeObjectURL(e.url));
+      entries.forEach((e) => URL.revokeObjectURL(e.url));
     };
-  }, [batchPreviewEntries]);
+  }, [batchKey, batchItems]);
 
   const fileForUrl =
     batchItems.length > 0
@@ -252,7 +241,6 @@ export function ImageEditor({
 
   const [rotation, setRotation] = useState(0);
   const [flip, setFlip] = useState({ x: false, y: false });
-  const pendingTransformCommitRef = useRef(false);
 
   const [cropMode, setCropMode] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
@@ -300,23 +288,6 @@ export function ImageEditor({
     return () =>
       document.removeEventListener("mousedown", onDocPointerDown, true);
   }, [open, shortcutsRequireFocus]);
-
-  const isDrawingRef = useRef(false);
-  const startPointRef = useRef<{ x: number; y: number } | null>(null);
-  const dragStartRef = useRef<{
-    x: number;
-    y: number;
-    rect: CropRect;
-  } | null>(null);
-  const resizeHandleRef = useRef<CropHandle | null>(null);
-
-  useEffect(() => {
-    workerRef.current = createImageResizeWorker();
-    return () => {
-      workerRef.current?.terminate();
-      workerRef.current = null;
-    };
-  }, []);
 
   useEffect(() => {
     const el = editorRootRef.current;
@@ -381,8 +352,6 @@ export function ImageEditor({
   }, [canvasScrollPort]);
 
   useEffect(() => {
-    setRotation(0);
-    setFlip({ x: false, y: false });
     setCropRect(null);
     setScaleW("");
     setScaleH("");
@@ -422,9 +391,7 @@ export function ImageEditor({
     const timer = requestAnimationFrame(() => {
       const el = modalContentRef.current;
       if (!el) return;
-      const focusables = el.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
+      const focusables = el.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
       const first = focusables[0];
       first?.focus();
     });
@@ -439,13 +406,10 @@ export function ImageEditor({
     const root = modalContentRef.current;
     if (!root) return;
 
-    const selector =
-      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
       const focusables = [
-        ...root.querySelectorAll<HTMLElement>(selector),
+        ...root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
       ].filter((el) => el.offsetParent !== null || root.contains(el));
       if (focusables.length === 0) return;
       const first = focusables[0];
@@ -485,394 +449,62 @@ export function ImageEditor({
 
   const filterStr = useMemo(() => buildCanvasFilterString(filter), [filter]);
 
-  const resizeWithWorkerIfNeeded = useCallback(
-    async (
-      sourceCanvas: HTMLCanvasElement,
-      outW: number,
-      outH: number,
-      outMime: string,
-      quality: number
-    ): Promise<string | null> => {
-      const worker = workerRef.current;
-      if (!worker || outW * outH < WORKER_PIXEL_THRESHOLD) return null;
+  const {
+    commitCurrentViewToBitmap,
+    rotateLeft,
+    rotateRight,
+    rotate180,
+    flipH,
+    flipV,
+  } = useTransformActions({
+    loadedImg,
+    viewport,
+    filterStr,
+    baseURL,
+    imgSize,
+    mime,
+    exportQuality,
+    rotation,
+    flip,
+    setRotation,
+    setFlip,
+    pushHistory,
+    setBaseURL,
+    setImgSize,
+    setFilter,
+    setProcessing,
+  });
 
-      return new Promise((resolve) => {
-        let settled = false;
-        const finish = (value: string | null) => {
-          if (settled) return;
-          settled = true;
-          window.clearTimeout(timeoutId);
-          worker.removeEventListener("message", onMsg);
-          resolve(value);
-        };
+  const { canvasRef } = useCanvasRenderer({
+    loadedImg,
+    viewport,
+    rotation,
+    flip,
+    cropRect,
+    resolvedTheme,
+    filterStr,
+  });
 
-        const timeoutId = window.setTimeout(() => finish(null), 60_000);
-
-        const onMsg = (e: MessageEvent) => {
-          if (e.data?.type === "done" && e.data.blob instanceof Blob) {
-            void blobToDataUrl(e.data.blob)
-              .then((url) => finish(url))
-              .catch(() => finish(null));
-          } else {
-            finish(null);
-          }
-        };
-
-        worker.addEventListener("message", onMsg);
-
-        void createImageBitmap(sourceCanvas)
-          .then((bmp) => {
-            try {
-              worker.postMessage(
-                {
-                  type: "resize",
-                  bitmap: bmp,
-                  outW,
-                  outH,
-                  mime: outMime,
-                  quality:
-                    outMime === "image/png" ? undefined : quality / 100,
-                },
-                [bmp]
-              );
-            } catch {
-              finish(null);
-            }
-          })
-          .catch(() => finish(null));
-      });
-    },
-    []
-  );
-
-  const commitCurrentViewToBitmap = useCallback(
-    async (targetW?: number, targetH?: number, historyLabel?: string) => {
-      if (!loadedImg) return;
-
-      const { w, h, scale } = viewport;
-      const imgW = loadedImg.naturalWidth || loadedImg.width;
-      const imgH = loadedImg.naturalHeight || loadedImg.height;
-      const drawW = imgW * scale;
-      const drawH = imgH * scale;
-      const ox = (w - drawW) / 2;
-      const oy = (h - drawH) / 2;
-
-      const temp = document.createElement("canvas");
-      temp.width = w;
-      temp.height = h;
-      const tctx = temp.getContext("2d")!;
-      tctx.save();
-      tctx.filter = filterStr;
-      tctx.translate(w / 2, h / 2);
-      tctx.rotate((rotation * Math.PI) / 180);
-      tctx.scale(flip.x ? -1 : 1, flip.y ? -1 : 1);
-      tctx.translate(-w / 2, -h / 2);
-      tctx.drawImage(loadedImg, 0, 0, imgW, imgH, ox, oy, drawW, drawH);
-      tctx.restore();
-
-      let outW = w;
-      let outH = h;
-      if (targetW || targetH) {
-        if (targetW && targetH) {
-          outW = targetW;
-          outH = targetH;
-        } else if (targetW) {
-          outW = targetW;
-          outH = Math.round(targetW / (w / h));
-        } else {
-          outH = targetH!;
-          outW = Math.round(targetH! * (w / h));
-        }
-      }
-
-      setProcessing(true);
-      try {
-        let dataURL: string;
-        const workerUrl = await resizeWithWorkerIfNeeded(
-          temp,
-          outW,
-          outH,
-          mime,
-          exportQuality
-        );
-        if (workerUrl) {
-          dataURL = workerUrl;
-        } else {
-          const offscreen = document.createElement("canvas");
-          offscreen.width = outW;
-          offscreen.height = outH;
-          const octx = offscreen.getContext("2d")!;
-          octx.drawImage(temp, 0, 0, w, h, 0, 0, outW, outH);
-          dataURL = offscreen.toDataURL(mime);
-        }
-
-        const decoded = await loadImage(dataURL);
-        pushHistory(
-          baseURL || dataURL,
-          imgSize.width,
-          imgSize.height,
-          historyLabel
-        );
-        setBaseURL(dataURL);
-        setImgSize({ width: decoded.width, height: decoded.height });
-        setRotation(0);
-        setFlip({ x: false, y: false });
-        setFilter(DEFAULT_FILTER);
-      } finally {
-        setProcessing(false);
-      }
-    },
-    [
-      loadedImg,
+  const { onCanvasMouseDown, onCanvasMouseMove, clearDragState } =
+    useCropInteraction({
+      cropMode,
+      cropRect,
+      setCropRect,
+      aspect,
       viewport,
-      rotation,
-      flip,
-      filterStr,
-      baseURL,
-      imgSize,
-      mime,
+      canvasRef,
+    });
+
+  const { exportOptions, onSave, onDownload, onCopyClipboard } =
+    useExportActions({
+      canvasRef,
+      exportMime,
       exportQuality,
-      pushHistory,
-      setBaseURL,
-      setImgSize,
-      resizeWithWorkerIfNeeded,
-    ]
-  );
-
-  useEffect(() => {
-    if (!pendingTransformCommitRef.current || !loadedImg) return;
-    pendingTransformCommitRef.current = false;
-    void commitCurrentViewToBitmap(undefined, undefined, "Rotate");
-  }, [rotation, flip, loadedImg, commitCurrentViewToBitmap]);
-
-  const requestTransformCommit = useCallback(() => {
-    pendingTransformCommitRef.current = true;
-  }, []);
-
-  const rotateLeft = useCallback(() => {
-    setRotation((d) => (d - 90 + 360) % 360);
-    requestTransformCommit();
-  }, [requestTransformCommit]);
-
-  const rotateRight = useCallback(() => {
-    setRotation((d) => (d + 90) % 360);
-    requestTransformCommit();
-  }, [requestTransformCommit]);
-
-  const rotate180 = useCallback(() => {
-    setRotation((d) => (d + 180) % 360);
-    requestTransformCommit();
-  }, [requestTransformCommit]);
-
-  const flipH = useCallback(() => {
-    setFlip((f) => ({ ...f, x: !f.x }));
-    requestTransformCommit();
-  }, [requestTransformCommit]);
-
-  const flipV = useCallback(() => {
-    setFlip((f) => ({ ...f, y: !f.y }));
-    requestTransformCommit();
-  }, [requestTransformCommit]);
-
-  const redraw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !loadedImg) return;
-
-    const ctx = canvas.getContext("2d")!;
-    const { w, h, scale } = viewport;
-
-    canvas.width = w;
-    canvas.height = h;
-    ctx.clearRect(0, 0, w, h);
-    ctx.save();
-
-    ctx.filter = filterStr;
-    ctx.translate(w / 2, h / 2);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.scale(flip.x ? -1 : 1, flip.y ? -1 : 1);
-    ctx.translate(-w / 2, -h / 2);
-
-    const imgW = loadedImg.naturalWidth || loadedImg.width;
-    const imgH = loadedImg.naturalHeight || loadedImg.height;
-    const drawW = imgW * scale;
-    const drawH = imgH * scale;
-    const ox = (w - drawW) / 2;
-    const oy = (h - drawH) / 2;
-    ctx.drawImage(loadedImg, 0, 0, imgW, imgH, ox, oy, drawW, drawH);
-    ctx.restore();
-
-    if (cropRect && (cropRect.width !== 0 || cropRect.height !== 0)) {
-      const drawX = Math.min(cropRect.x, cropRect.x + cropRect.width);
-      const drawY = Math.min(cropRect.y, cropRect.y + cropRect.height);
-      const drawWc = Math.abs(cropRect.width);
-      const drawHc = Math.abs(cropRect.height);
-      ctx.fillStyle = "rgba(0,0,0,0.4)";
-      ctx.beginPath();
-      ctx.rect(0, 0, w, h);
-      ctx.rect(drawX, drawY, drawWc, drawHc);
-      ctx.fill("evenodd");
-      ctx.strokeStyle = resolvedTheme === "dark" ? "#58a6ff" : "#218bff";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([6, 4]);
-      ctx.strokeRect(drawX, drawY, drawWc, drawHc);
-      ctx.setLineDash([]);
-      const handleColor = resolvedTheme === "dark" ? "#58a6ff" : "#218bff";
-      const hs = CROP_HANDLE_SIZE / 2;
-      const handles: [number, number][] = [
-        [drawX, drawY],
-        [drawX + drawWc, drawY],
-        [drawX + drawWc, drawY + drawHc],
-        [drawX, drawY + drawHc],
-        [drawX + drawWc / 2, drawY],
-        [drawX + drawWc, drawY + drawHc / 2],
-        [drawX + drawWc / 2, drawY + drawHc],
-        [drawX, drawY + drawHc / 2],
-      ];
-      ctx.fillStyle = handleColor;
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 1.5;
-      for (const [hx, hy] of handles) {
-        ctx.fillRect(hx - hs, hy - hs, CROP_HANDLE_SIZE, CROP_HANDLE_SIZE);
-        ctx.strokeRect(hx - hs, hy - hs, CROP_HANDLE_SIZE, CROP_HANDLE_SIZE);
-      }
-    }
-  }, [loadedImg, viewport, rotation, flip, cropRect, resolvedTheme, filterStr]);
-
-  useLayoutEffect(() => {
-    redraw();
-  }, [redraw]);
-
-  const getCanvasPoint = useCallback((e: React.MouseEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
-    };
-  }, []);
-
-  const onCanvasMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const pos = getCanvasPoint(e);
-      if (!pos) return;
-
-      if (cropMode) {
-        if (cropRect && (cropRect.width !== 0 || cropRect.height !== 0)) {
-          const hit = hitTestCropHandle(
-            pos.x,
-            pos.y,
-            cropRect,
-            CROP_HANDLE_SIZE
-          );
-          if (
-            hit &&
-            hit !== "center" &&
-            ["nw", "ne", "se", "sw", "n", "e", "s", "w"].includes(hit)
-          ) {
-            resizeHandleRef.current = hit;
-            return;
-          }
-          if (hit === "center") {
-            const r = getCropRectNormalized(cropRect);
-            if (r)
-              dragStartRef.current = {
-                x: pos.x - r.x,
-                y: pos.y - r.y,
-                rect: { ...r },
-              };
-            return;
-          }
-        }
-        isDrawingRef.current = true;
-        startPointRef.current = pos;
-        setCropRect({ x: pos.x, y: pos.y, width: 0, height: 0 });
-      }
-    },
-    [cropMode, cropRect, getCanvasPoint]
-  );
-
-  const onCanvasMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const pos = getCanvasPoint(e);
-      if (!pos) return;
-
-      if (!cropMode && canvasRef.current) {
-        canvasRef.current.style.cursor = "";
-      }
-      if (cropMode && resizeHandleRef.current) {
-        const r = getCropRectNormalized(cropRect);
-        if (r) {
-          const next = resizeCropRectFromHandle(
-            resizeHandleRef.current,
-            r.x,
-            r.y,
-            r.width,
-            r.height,
-            pos.x,
-            pos.y,
-            aspect,
-            viewport
-          );
-          if (next) setCropRect(next);
-        }
-      } else if (cropMode && isDrawingRef.current && startPointRef.current) {
-        const { x: sx, y: sy } = startPointRef.current;
-        const next = normalizeFromPoints(sx, sy, pos.x, pos.y, aspect);
-        setCropRect(clampRectToViewport(next, viewport));
-      } else if (cropMode && dragStartRef.current) {
-        const { rect, x: dx, y: dy } = dragStartRef.current;
-        const clamped = clampRectToViewport(
-          { ...rect, x: pos.x - dx, y: pos.y - dy },
-          viewport
-        );
-        setCropRect(clamped);
-      } else if (
-        cropMode &&
-        canvasRef.current &&
-        cropRect &&
-        (cropRect.width !== 0 || cropRect.height !== 0)
-      ) {
-        const hit = hitTestCropHandle(
-          pos.x,
-          pos.y,
-          cropRect,
-          CROP_HANDLE_SIZE
-        );
-        const cursor =
-          hit === "nw" || hit === "se"
-            ? "nwse-resize"
-            : hit === "ne" || hit === "sw"
-              ? "nesw-resize"
-              : hit === "n" || hit === "s"
-                ? "ns-resize"
-                : hit === "e" || hit === "w"
-                  ? "ew-resize"
-                  : hit === "center"
-                    ? "move"
-                    : "crosshair";
-        canvasRef.current.style.cursor = cursor;
-      }
-    },
-    [cropMode, cropRect, aspect, viewport, getCanvasPoint]
-  );
-
-  const clearDragState = useCallback(() => {
-    isDrawingRef.current = false;
-    startPointRef.current = null;
-    dragStartRef.current = null;
-    resizeHandleRef.current = null;
-    if (canvasRef.current) canvasRef.current.style.cursor = "";
-  }, []);
-
-  useEffect(() => {
-    if (!cropMode) return;
-    const onWindowMouseUp = () => clearDragState();
-    window.addEventListener("mouseup", onWindowMouseUp);
-    return () => window.removeEventListener("mouseup", onWindowMouseUp);
-  }, [cropMode, clearDragState]);
+      viewport,
+      onExport,
+      showToast,
+      labels,
+    });
 
   const applyCrop = useCallback(async () => {
     if (!loadedImg || !cropRect) return;
@@ -893,15 +525,22 @@ export function ImageEditor({
     const temp = document.createElement("canvas");
     temp.width = w;
     temp.height = h;
-    const tctx = temp.getContext("2d")!;
-    tctx.save();
-    tctx.filter = filterStr;
-    tctx.translate(w / 2, h / 2);
-    tctx.rotate((rotation * Math.PI) / 180);
-    tctx.scale(flip.x ? -1 : 1, flip.y ? -1 : 1);
-    tctx.translate(-w / 2, -h / 2);
-    tctx.drawImage(loadedImg, 0, 0, imgW, imgH, ox, oy, drawW, drawH);
-    tctx.restore();
+    const tctx = temp.getContext("2d");
+    if (!tctx) return;
+    drawImageTransformed(
+      tctx,
+      loadedImg,
+      w,
+      h,
+      ox,
+      oy,
+      drawW,
+      drawH,
+      rotation,
+      flip.x,
+      flip.y,
+      filterStr
+    );
 
     const offscreen = document.createElement("canvas");
     offscreen.width = cw;
@@ -994,66 +633,6 @@ export function ImageEditor({
     labels.filtersApplied,
     showToast,
   ]);
-
-  const exportOptions = useMemo(
-    () => ({ mime: exportMime, quality: exportQuality }),
-    [exportMime, exportQuality]
-  );
-
-  const exportCanvasToBlob = useCallback((): Promise<Blob | null> => {
-    const canvas = canvasRef.current;
-    if (!canvas) return Promise.resolve(null);
-    const q =
-      exportMime === "image/png" ? undefined : exportQuality / 100;
-    return new Promise((resolve) => {
-      canvas.toBlob(
-        (blob) => resolve(blob),
-        exportMime,
-        q
-      );
-    });
-  }, [exportMime, exportQuality]);
-
-  const onSave = useCallback(() => {
-    void exportCanvasToBlob().then((blob) => {
-      if (!blob) return;
-      onExport?.(blob, {
-        width: viewport.w,
-        height: viewport.h,
-        mime: exportMime,
-        exportOptions,
-      });
-    });
-  }, [exportCanvasToBlob, viewport, exportMime, exportOptions, onExport]);
-
-  const onDownload = useCallback(() => {
-    void exportCanvasToBlob().then((blob) => {
-      if (!blob) return;
-      const a = document.createElement("a");
-      const href = URL.createObjectURL(blob);
-      a.href = href;
-      const ext =
-        exportMime === "image/jpeg"
-          ? "jpg"
-          : exportMime.replace("image/", "");
-      a.download = `image.${ext}`;
-      a.click();
-      URL.revokeObjectURL(href);
-    });
-  }, [exportCanvasToBlob, exportMime]);
-
-  const onCopyClipboard = useCallback(() => {
-    if (!navigator.clipboard?.write) return;
-    void exportCanvasToBlob().then((blob) => {
-      if (!blob) return;
-      void navigator.clipboard
-        .write([new ClipboardItem({ [blob.type]: blob })])
-        .then(() => showToast(labels.copiedToClipboard ?? "Copied"))
-        .catch(() => {
-          /* clipboard may reject (permissions, unsupported type) */
-        });
-    });
-  }, [exportCanvasToBlob, labels.copiedToClipboard, showToast]);
 
   const onCancel = useCallback(() => {
     cancelToFirst();
@@ -1631,13 +1210,10 @@ export function ImageEditor({
         {activeTab === "crop" && (
           <CropSidebar
             cropModeType={cropModeType}
-            setCropModeType={setCropModeType}
             setCropModeTypeAndAspect={setCropModeTypeAndAspect}
             aspect={aspect}
             setAspect={setAspect}
             cropRect={cropRect}
-            setCropRect={setCropRect}
-            viewport={viewport}
             onApplyCrop={() => {
               void applyCrop();
             }}
