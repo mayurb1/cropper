@@ -1,5 +1,6 @@
 import React from "react";
 import type { HistoryEntry, ImageEditorLabels } from "../types";
+import { rpBtnSurface } from "../styles";
 
 export interface HistoryPanelProps {
   history: HistoryEntry[];
@@ -28,11 +29,13 @@ export function HistoryPanel({
   return (
     <div
       style={{
-        marginTop: 12,
+        marginTop: "var(--rp-space-3)",
         border: "1px solid var(--rp-border)",
-        borderRadius: 12,
+        borderRadius: "var(--rp-radius-md)",
         background: "var(--rp-surface)",
         overflow: "hidden",
+        boxShadow: "0 1px 2px color-mix(in srgb, var(--rp-text) 4%, transparent)",
+        fontFamily: "var(--rp-font-family)",
       }}
     >
       <button
@@ -41,17 +44,18 @@ export function HistoryPanel({
         aria-expanded={expanded}
         style={{
           width: "100%",
-          padding: "10px 12px",
+          padding: "12px 14px",
           border: "none",
-          background: "var(--rp-input-bg)",
+          background: "var(--rp-surface-muted)",
           color: "var(--rp-text)",
-          fontSize: 13,
+          fontSize: "var(--rp-font-size-sm)",
           fontWeight: 600,
           cursor: "pointer",
           textAlign: "left",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          fontFamily: "var(--rp-font-family)",
         }}
       >
         <span>{labels.history}</span>
@@ -62,10 +66,10 @@ export function HistoryPanel({
           style={{
             listStyle: "none",
             margin: 0,
-            padding: 8,
+            padding: "var(--rp-space-3)",
             display: "flex",
             flexWrap: "wrap",
-            gap: 8,
+            gap: "var(--rp-space-2)",
             maxHeight: 200,
             overflow: "auto",
           }}
@@ -74,17 +78,18 @@ export function HistoryPanel({
             <li key={`${entry.dataURL.slice(0, 32)}-${index}`}>
               <button
                 type="button"
+                className={rpBtnSurface}
                 onClick={() => onJumpTo(index)}
                 style={{
-                  padding: 4,
+                  padding: "var(--rp-space-1)",
                   border: "1px solid var(--rp-border)",
-                  borderRadius: 8,
-                  background: "var(--rp-bg)",
+                  borderRadius: "var(--rp-radius-sm)",
+                  background: "var(--rp-surface-muted)",
                   cursor: "pointer",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: 4,
+                  gap: "var(--rp-space-1)",
                   maxWidth: 88,
                 }}
                 title={entry.label ?? `${entry.width}×${entry.height}`}
@@ -96,18 +101,19 @@ export function HistoryPanel({
                     width: 72,
                     height: 72,
                     objectFit: "cover",
-                    borderRadius: 4,
+                    borderRadius: "var(--rp-radius-sm)",
                     display: "block",
                   }}
                 />
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: "var(--rp-font-size-xs)",
                     color: "var(--rp-text-muted)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                     maxWidth: 80,
+                    fontFamily: "var(--rp-font-family)",
                   }}
                 >
                   {entry.label ?? `${entry.width}×${entry.height}`}

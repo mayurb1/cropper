@@ -22,12 +22,13 @@ export const toastFixedStyle: CSSProperties = {
   left: "50%",
   transform: "translateX(-50%)",
   zIndex: 10002,
-  padding: "10px 16px",
+  padding: "12px 18px",
   background: "var(--rp-surface)",
   border: "1px solid var(--rp-border)",
-  borderRadius: 8,
+  borderRadius: "var(--rp-radius-md)",
   boxShadow: "var(--rp-shadow)",
-  fontSize: 14,
+  fontSize: "var(--rp-font-size-md)",
+  fontFamily: "var(--rp-font-family)",
   color: "var(--rp-text)",
 };
 
@@ -43,37 +44,41 @@ export const displayContentsStyle: CSSProperties = { display: "contents" };
 
 export const headerRowStyle: CSSProperties = {
   display: "flex",
-  alignItems: "center",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  marginBottom: 8,
+  marginBottom: "var(--rp-space-3)",
   flexWrap: "wrap",
-  gap: 8,
+  gap: "var(--rp-space-2)",
 };
 
 export const titleStyle: CSSProperties = {
   margin: 0,
-  fontSize: 16,
-  fontWeight: 600,
+  fontSize: "var(--rp-font-size-lg)",
+  fontWeight: 700,
+  letterSpacing: "-0.02em",
   color: "var(--rp-text)",
+  fontFamily: "var(--rp-font-family)",
 };
 
 export const subtitleStyle: CSSProperties = {
-  fontSize: 12,
+  fontSize: "var(--rp-font-size-sm)",
   color: "var(--rp-text-muted)",
   display: "block",
-  marginTop: 2,
+  marginTop: "var(--rp-space-1)",
+  fontFamily: "var(--rp-font-family)",
 };
 
 export const processingHeaderStyle: CSSProperties = {
-  fontSize: 13,
+  fontSize: "var(--rp-font-size-md)",
   color: "var(--rp-primary)",
+  fontFamily: "var(--rp-font-family)",
 };
 
 export const mainRowStyle = (modal: boolean): CSSProperties => ({
   display: "flex",
   flexDirection: "row",
   flexWrap: "nowrap",
-  gap: 16,
+  gap: "var(--rp-space-4)",
   alignItems: modal ? "stretch" : "flex-start",
   width: "100%",
   minWidth: 0,
@@ -88,7 +93,7 @@ export const mainRowStyle = (modal: boolean): CSSProperties => ({
 
 export const batchStripStyle = (compact: boolean): CSSProperties => ({
   display: "flex",
-  gap: 8,
+  gap: "var(--rp-space-2)",
   flex: "0 0 auto",
   flexShrink: 0,
   maxHeight: compact ? 120 : 360,
@@ -117,16 +122,18 @@ export const customTabPanelStyle: CSSProperties = {
 };
 
 export const cropOverlayHintStyle: CSSProperties = {
-  fontSize: 12,
+  fontSize: "var(--rp-font-size-sm)",
   color: "var(--rp-text-muted)",
-  marginBottom: 6,
+  marginBottom: "var(--rp-space-2)",
+  fontFamily: "var(--rp-font-family)",
 };
 
 export const viewportHintStyle: CSSProperties = {
   textAlign: "center",
-  marginTop: 6,
-  fontSize: 12,
+  marginTop: "var(--rp-space-2)",
+  fontSize: "var(--rp-font-size-sm)",
   color: "var(--rp-text-muted)",
+  fontFamily: "var(--rp-font-family)",
 };
 
 export const loadingCanvasPlaceholderStyle: CSSProperties = {
@@ -135,18 +142,21 @@ export const loadingCanvasPlaceholderStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   color: "var(--rp-text-muted)",
-  fontSize: 14,
+  fontSize: "var(--rp-font-size-md)",
+  fontFamily: "var(--rp-font-family)",
 };
 
 export const editorRootStyle: CSSProperties = {
   position: "relative",
 };
 
+/** Outer card (non-modal). */
 export const inlineCardStyle: CSSProperties = {
   border: "1px solid var(--rp-border)",
-  borderRadius: 12,
-  padding: 16,
-  background: "var(--rp-bg)",
+  borderRadius: "var(--rp-radius-lg)",
+  padding: "var(--rp-space-4)",
+  background: "var(--rp-surface)",
+  boxShadow: "0 1px 3px color-mix(in srgb, var(--rp-text) 6%, transparent)",
 };
 
 export const overlayStyle: CSSProperties = {
@@ -157,9 +167,53 @@ export const overlayStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: 16,
+  padding: "var(--rp-space-4)",
 };
 
 export const modalShellStyle: CSSProperties = {
   position: "relative",
+};
+
+/** Right sidebar shell: white card on muted rail (reference layout). */
+export const sidebarShellStyle: CSSProperties = {
+  flex: "0 0 320px",
+  maxWidth: "100%",
+  minHeight: 0,
+  maxHeight: "100%",
+  overflowY: "auto",
+  padding: "var(--rp-space-4)",
+  background: "var(--rp-surface)",
+  border: "1px solid var(--rp-border)",
+  borderRadius: "var(--rp-radius-md)",
+  minWidth: 280,
+  display: "flex",
+  flexDirection: "column",
+  boxShadow: "0 1px 2px color-mix(in srgb, var(--rp-text) 4%, transparent)",
+};
+
+/** Section title (uppercase muted) — shared across sidebars. */
+export const sidebarSectionLabelStyle: CSSProperties = {
+  fontSize: "var(--rp-font-size-xs)",
+  fontWeight: 600,
+  color: "var(--rp-text-muted)",
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  marginBottom: "var(--rp-space-2)",
+  fontFamily: "var(--rp-font-family)",
+};
+
+/** Inner card inside sidebar. */
+export const sidebarCardStyle: CSSProperties = {
+  border: "1px solid var(--rp-border)",
+  borderRadius: "var(--rp-radius-sm)",
+  background: "var(--rp-surface-muted)",
+  overflow: "hidden",
+};
+
+export const canvasWrapperOuterStyle: CSSProperties = {
+  border: "1px solid var(--rp-border)",
+  borderRadius: "var(--rp-radius-md)",
+  padding: "var(--rp-space-3)",
+  background: "var(--rp-surface-muted)",
+  boxShadow: "inset 0 1px 0 color-mix(in srgb, var(--rp-text) 4%, transparent)",
 };

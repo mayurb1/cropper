@@ -1,7 +1,17 @@
 import React from "react";
 import type { FilterConfig, ImageEditorLabels } from "../types";
-import { baseBtn, primaryBtn } from "../styles";
+import {
+  baseBtn,
+  primaryBtn,
+  rpBtnPrimary,
+  rpBtnSurface,
+} from "../styles";
 import { isFilterDefault } from "../utils/filterString";
+import {
+  sidebarShellStyle,
+  sidebarSectionLabelStyle,
+  sidebarCardStyle,
+} from "../ImageEditor.styles";
 
 export interface FiltersSidebarProps {
   filter: FilterConfig;
@@ -13,29 +23,19 @@ export interface FiltersSidebarProps {
   compact?: boolean;
 }
 
-const SIDEBAR_STYLE: React.CSSProperties = {
-  flex: "0 0 320px",
-  maxWidth: "100%",
-  minHeight: 0,
-  maxHeight: "100%",
-  overflowY: "auto",
-  padding: 16,
-  background: "var(--rp-surface)",
-  border: "1px solid var(--rp-border)",
-  borderRadius: 12,
-  minWidth: 280,
+const sliderRowStyle: React.CSSProperties = {
   display: "flex",
-  flexDirection: "column",
-  gap: 12,
+  alignItems: "center",
+  gap: "var(--rp-space-3)",
+  marginBottom: "var(--rp-space-1)",
 };
 
-const LABEL: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  color: "var(--rp-text-muted)",
-  textTransform: "uppercase",
-  letterSpacing: "0.5px",
-  marginBottom: 4,
+const sliderLabelStyle: React.CSSProperties = {
+  flex: "0 0 100px",
+  fontSize: "var(--rp-font-size-sm)",
+  color: "var(--rp-text)",
+  fontFamily: "var(--rp-font-family)",
+  fontWeight: 500,
 };
 
 /**
@@ -57,115 +57,191 @@ export function FiltersSidebar({
   const disabled = !baseURL;
   const canApply = !disabled && !isFilterDefault(filter);
 
+  const sliderBlock = (
+    label: string,
+    value: number,
+    min: number,
+    max: number,
+    step: number,
+    onChange: (n: number) => void
+  ) => (
+    <div style={{ marginBottom: "var(--rp-space-4)" }}>
+      <div style={sliderRowStyle}>
+        <span style={sliderLabelStyle}>{label}</span>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          disabled={disabled}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            accentColor: "var(--rp-primary)",
+          }}
+        />
+        <span
+          style={{
+            flex: "0 0 44px",
+            textAlign: "right",
+            fontSize: "var(--rp-font-size-sm)",
+            color: "var(--rp-text-muted)",
+            fontFamily: "var(--rp-font-family)",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {Math.round(value * 100)}%
+        </span>
+      </div>
+    </div>
+  );
+
   return (
     <div
       id="react-pixcraft-panel-filters"
       role="tabpanel"
       aria-labelledby="react-pixcraft-tab-filters"
-      style={SIDEBAR_STYLE}
+      style={{
+        ...sidebarShellStyle,
+        height: "100%",
+        overflowX: "hidden",
+        overflowY: "hidden",
+      }}
     >
-      <div>
-        <div style={LABEL}>{labels.brightness}</div>
-        <input
-          type="range"
-          min={0.5}
-          max={2}
-          step={0.01}
-          value={filter.brightness}
-          onChange={(e) =>
-            setFilter((f) => ({ ...f, brightness: Number(e.target.value) }))
-          }
-          disabled={disabled}
-          style={{ width: "100%", accentColor: "var(--rp-primary)" }}
-        />
-        <div style={{ fontSize: 12, color: "var(--rp-text-muted)" }}>
-          {Math.round(filter.brightness * 100)}%
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--rp-space-3)",
+        }}
+      >
+      <div
+        style={{
+          ...sidebarCardStyle,
+          padding: "var(--rp-space-3)",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ ...sidebarSectionLabelStyle, marginTop: 0 }}>
+          {labels.filtersAdjustments ?? "ADJUSTMENTS"}
+        </div>
+        {sliderBlock(
+          labels.brightness ?? "Brightness",
+          filter.brightness,
+          0.5,
+          2,
+          0.01,
+          (n) => setFilter((f) => ({ ...f, brightness: n }))
+        )}
+        {sliderBlock(
+          labels.contrast ?? "Contrast",
+          filter.contrast,
+          0.5,
+          2,
+          0.01,
+          (n) => setFilter((f) => ({ ...f, contrast: n }))
+        )}
+        {sliderBlock(
+          labels.saturation ?? "Saturation",
+          filter.saturation,
+          0,
+          2,
+          0.01,
+          (n) => setFilter((f) => ({ ...f, saturation: n }))
+        )}
+      </div>
+
+      <div style={{ flexShrink: 0 }}>
+        <div style={sidebarSectionLabelStyle}>
+          {labels.filtersPresets ?? "PRESETS"}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "var(--rp-space-2)",
+          }}
+        >
+          <button
+            type="button"
+            className={rpBtnSurface}
+            style={{
+              ...baseBtn,
+              minHeight: compact ? 44 : undefined,
+              opacity: disabled ? 0.5 : 1,
+              borderRadius: 999,
+              fontSize: "var(--rp-font-size-sm)",
+            }}
+            disabled={disabled}
+            onClick={() =>
+              setFilter((f) => ({ ...f, grayscale: f.grayscale > 0 ? 0 : 1 }))
+            }
+          >
+            {labels.presetGrayscale}
+          </button>
+          <button
+            type="button"
+            className={rpBtnSurface}
+            style={{
+              ...baseBtn,
+              minHeight: compact ? 44 : undefined,
+              opacity: disabled ? 0.5 : 1,
+              borderRadius: 999,
+              fontSize: "var(--rp-font-size-sm)",
+            }}
+            disabled={disabled}
+            onClick={() =>
+              setFilter((f) => ({ ...f, sepia: f.sepia > 0 ? 0 : 1 }))
+            }
+          >
+            {labels.presetSepia}
+          </button>
+          <button
+            type="button"
+            className={rpBtnSurface}
+            style={{
+              ...baseBtn,
+              minHeight: compact ? 44 : undefined,
+              opacity: disabled ? 0.5 : 1,
+              borderRadius: 999,
+              fontSize: "var(--rp-font-size-sm)",
+            }}
+            disabled={disabled}
+            onClick={() =>
+              setFilter((f) => ({ ...f, blurPx: f.blurPx > 0 ? 0 : 4 }))
+            }
+          >
+            {labels.presetBlur}
+          </button>
         </div>
       </div>
-      <div>
-        <div style={LABEL}>{labels.contrast}</div>
-        <input
-          type="range"
-          min={0.5}
-          max={2}
-          step={0.01}
-          value={filter.contrast}
-          onChange={(e) =>
-            setFilter((f) => ({ ...f, contrast: Number(e.target.value) }))
-          }
-          disabled={disabled}
-          style={{ width: "100%", accentColor: "var(--rp-primary)" }}
-        />
-        <div style={{ fontSize: 12, color: "var(--rp-text-muted)" }}>
-          {Math.round(filter.contrast * 100)}%
-        </div>
       </div>
-      <div>
-        <div style={LABEL}>{labels.saturation}</div>
-        <input
-          type="range"
-          min={0}
-          max={2}
-          step={0.01}
-          value={filter.saturation}
-          onChange={(e) =>
-            setFilter((f) => ({ ...f, saturation: Number(e.target.value) }))
-          }
-          disabled={disabled}
-          style={{ width: "100%", accentColor: "var(--rp-primary)" }}
-        />
-        <div style={{ fontSize: 12, color: "var(--rp-text-muted)" }}>
-          {Math.round(filter.saturation * 100)}%
-        </div>
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+
+      <div
+        style={{
+          flexShrink: 0,
+          paddingTop: "var(--rp-space-3)",
+          display: "flex",
+          flexDirection: "row",
+          gap: "var(--rp-space-2)",
+          width: "100%",
+        }}
+      >
         <button
           type="button"
+          className={rpBtnPrimary}
           style={{
-            ...baseBtn,
+            ...primaryBtn,
+            flex: 1,
+            minWidth: 0,
             minHeight: compact ? 44 : undefined,
-            opacity: disabled ? 0.5 : 1,
           }}
-          disabled={disabled}
-          onClick={() =>
-            setFilter((f) => ({ ...f, grayscale: f.grayscale > 0 ? 0 : 1 }))
-          }
-        >
-          {labels.presetGrayscale}
-        </button>
-        <button
-          type="button"
-          style={{
-            ...baseBtn,
-            minHeight: compact ? 44 : undefined,
-            opacity: disabled ? 0.5 : 1,
-          }}
-          disabled={disabled}
-          onClick={() =>
-            setFilter((f) => ({ ...f, sepia: f.sepia > 0 ? 0 : 1 }))
-          }
-        >
-          {labels.presetSepia}
-        </button>
-        <button
-          type="button"
-          style={{
-            ...baseBtn,
-            minHeight: compact ? 44 : undefined,
-            opacity: disabled ? 0.5 : 1,
-          }}
-          disabled={disabled}
-          onClick={() =>
-            setFilter((f) => ({ ...f, blurPx: f.blurPx > 0 ? 0 : 4 }))
-          }
-        >
-          {labels.presetBlur}
-        </button>
-      </div>
-      <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-        <button
-          type="button"
-          style={primaryBtn}
           disabled={!canApply}
           onClick={onApplyFilters}
         >
@@ -173,7 +249,13 @@ export function FiltersSidebar({
         </button>
         <button
           type="button"
-          style={baseBtn}
+          className={rpBtnSurface}
+          style={{
+            ...baseBtn,
+            flex: 1,
+            minWidth: 0,
+            minHeight: compact ? 44 : undefined,
+          }}
           disabled={disabled || isFilterDefault(filter)}
           onClick={onResetFilters}
         >

@@ -1,7 +1,12 @@
 import React, { useMemo } from "react";
 import type { ImageEditorLabels } from "../types";
-import { primaryBtn } from "../styles";
+import { primaryBtn, rpBtnPrimary, rpBtnSurface } from "../styles";
 import { estimateRgbSizeKb } from "../utils/validation";
+import {
+  sidebarShellStyle,
+  sidebarSectionLabelStyle,
+  sidebarCardStyle,
+} from "../ImageEditor.styles";
 
 export interface ScaleSidebarProps {
   scaleFactorPercent: number;
@@ -12,21 +17,6 @@ export interface ScaleSidebarProps {
   baseURL: string | null;
   compact?: boolean;
 }
-
-const SIDEBAR_STYLE: React.CSSProperties = {
-  flex: "0 0 320px",
-  maxWidth: "100%",
-  minHeight: 0,
-  maxHeight: "100%",
-  overflowY: "auto",
-  padding: 16,
-  background: "var(--rp-surface)",
-  border: "1px solid var(--rp-border)",
-  borderRadius: 12,
-  minWidth: 280,
-  display: "flex",
-  flexDirection: "column",
-};
 
 const SCALE_PRESETS = [25, 50, 75, 100, 125, 150, 175, 200];
 
@@ -60,40 +50,31 @@ export function ScaleSidebar({
       id="react-pixcraft-panel-scale"
       role="tabpanel"
       aria-labelledby="react-pixcraft-tab-scale"
-      style={SIDEBAR_STYLE}
+      style={sidebarShellStyle}
     >
+      <div style={sidebarSectionLabelStyle}>{labels.scaleFactor}</div>
       <div
         style={{
-          fontSize: 11,
-          fontWeight: 600,
-          color: "var(--rp-text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-          marginBottom: 12,
-        }}
-      >
-        {labels.scaleFactor}
-      </div>
-      <div
-        style={{
-          marginBottom: 16,
-          padding: "12px 16px",
-          background: "var(--rp-input-bg)",
-          borderRadius: 8,
+          ...sidebarCardStyle,
+          marginBottom: "var(--rp-space-4)",
+          padding: "var(--rp-space-4)",
           textAlign: "center",
+          background: "var(--rp-surface-muted)",
         }}
       >
         <span
           style={{
-            fontSize: 24,
-            fontWeight: 600,
+            fontSize: 28,
+            fontWeight: 700,
             color: "var(--rp-primary)",
+            fontFamily: "var(--rp-font-family)",
+            letterSpacing: "-0.02em",
           }}
         >
           {scaleFactorPercent} %
         </span>
       </div>
-      <div style={{ marginBottom: 8 }}>
+      <div style={{ marginBottom: "var(--rp-space-2)" }}>
         <input
           type="range"
           min={10}
@@ -101,40 +82,56 @@ export function ScaleSidebar({
           value={scaleFactorPercent}
           onChange={(e) => setScaleFactorPercent(Number(e.target.value))}
           disabled={!baseURL}
-          style={{ width: "100%", accentColor: "var(--rp-primary)" }}
+          style={{
+            width: "100%",
+            accentColor: "var(--rp-primary)",
+            height: 6,
+            borderRadius: 999,
+          }}
         />
       </div>
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          fontSize: 11,
+          fontSize: "var(--rp-font-size-xs)",
           color: "var(--rp-text-muted)",
-          marginBottom: 12,
+          marginBottom: "var(--rp-space-3)",
+          fontFamily: "var(--rp-font-family)",
         }}
       >
         <span>10%</span>
         <span>200%</span>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          gap: "var(--rp-space-2)",
+          marginBottom: "var(--rp-space-4)",
+        }}
+      >
         {SCALE_PRESETS.map((pct) => (
           <button
             key={pct}
             type="button"
+            className={rpBtnSurface}
             onClick={() => setScaleFactorPercent(pct)}
             disabled={!baseURL}
             style={{
-              padding: "6px 10px",
+              padding: "8px 6px",
               border: `1px solid ${scaleFactorPercent === pct ? "var(--rp-primary)" : "var(--rp-border)"}`,
-              borderRadius: 6,
+              borderRadius: 999,
               background:
                 scaleFactorPercent === pct
                   ? "var(--rp-primary)"
-                  : "var(--rp-input-bg)",
-              color: scaleFactorPercent === pct ? "white" : "var(--rp-text)",
+                  : "var(--rp-surface)",
+              color: scaleFactorPercent === pct ? "#ffffff" : "var(--rp-text)",
               cursor: baseURL ? "pointer" : "not-allowed",
-              fontSize: 12,
-              minHeight: compact ? 40 : undefined,
+              fontSize: "var(--rp-font-size-xs)",
+              fontFamily: "var(--rp-font-family)",
+              minHeight: compact ? 40 : 36,
+              fontWeight: scaleFactorPercent === pct ? 600 : 500,
             }}
           >
             {pct}%
@@ -143,27 +140,29 @@ export function ScaleSidebar({
       </div>
       <div
         style={{
-          fontSize: 12,
+          fontSize: "var(--rp-font-size-sm)",
           color: "var(--rp-text-muted)",
-          marginBottom: 8,
+          marginBottom: "var(--rp-space-2)",
+          fontFamily: "var(--rp-font-family)",
         }}
       >
-        ←{" "}
         {imgSize.width > 0 && imgSize.height > 0
           ? `${outW} × ${outH}px`
           : "—"}
       </div>
       <div
         style={{
-          fontSize: 12,
+          fontSize: "var(--rp-font-size-sm)",
           color: "var(--rp-text-muted)",
-          marginBottom: 16,
+          marginBottom: "var(--rp-space-4)",
+          fontFamily: "var(--rp-font-family)",
         }}
       >
         {labels.estimatedSize}: ~{estKb} KB (RGB estimate)
       </div>
       <button
         type="button"
+        className={rpBtnPrimary}
         style={{ ...primaryBtn, marginTop: "auto" }}
         onClick={onApplyScale}
         disabled={!baseURL}

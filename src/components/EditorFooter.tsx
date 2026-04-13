@@ -5,6 +5,10 @@ import {
   outlineBtn,
   getBtnDisabledStyle,
   getGhostDisabledStyle,
+  rpBtnPrimary,
+  rpBtnOutline,
+  rpBtnSurface,
+  rpBtnGhost,
 } from "../styles";
 
 export interface EditorFooterProps {
@@ -50,15 +54,24 @@ export function EditorFooter({
         alignItems: "center",
         justifyContent: "space-between",
         flexWrap: "wrap",
-        gap: 12,
-        marginTop: 16,
-        paddingTop: 12,
+        gap: "var(--rp-space-3)",
+        marginTop: "var(--rp-space-4)",
+        paddingTop: "var(--rp-space-3)",
         borderTop: "1px solid var(--rp-border)",
+        fontFamily: "var(--rp-font-family)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--rp-space-2)",
+          flexWrap: "wrap",
+        }}
+      >
         <button
           type="button"
+          className={rpBtnSurface}
           title={labels.undo}
           aria-label={labels.undo}
           onClick={onUndo}
@@ -72,12 +85,14 @@ export function EditorFooter({
             alignItems: "center",
             justifyContent: "center",
             fontSize: 18,
+            borderRadius: "var(--rp-radius-sm)",
           }}
         >
           ↶
         </button>
         <button
           type="button"
+          className={rpBtnSurface}
           title={labels.redo}
           aria-label={labels.redo}
           onClick={onRedo}
@@ -91,6 +106,7 @@ export function EditorFooter({
             alignItems: "center",
             justifyContent: "center",
             fontSize: 18,
+            borderRadius: "var(--rp-radius-sm)",
           }}
         >
           ↷
@@ -101,12 +117,13 @@ export function EditorFooter({
             width: 1,
             height: 24,
             background: "var(--rp-border)",
-            margin: "0 4px",
+            margin: "0 var(--rp-space-1)",
           }}
         />
         {onToggleHistory ? (
           <button
             type="button"
+            className={rpBtnSurface}
             title={labels.historyToggle}
             aria-label={labels.historyToggle}
             aria-pressed={historyPanelOpen}
@@ -121,6 +138,7 @@ export function EditorFooter({
               alignItems: "center",
               justifyContent: "center",
               fontSize: 16,
+              borderRadius: "var(--rp-radius-sm)",
             }}
           >
             ⧉
@@ -128,6 +146,7 @@ export function EditorFooter({
         ) : null}
         <button
           type="button"
+          className={rpBtnGhost}
           style={{
             ...getGhostDisabledStyle(historyLength === 0),
             minHeight: compact ? 44 : undefined,
@@ -141,10 +160,18 @@ export function EditorFooter({
 
       <div style={{ flex: 1, minWidth: 8 }} />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--rp-space-2)",
+          flexWrap: "wrap",
+        }}
+      >
         {showBatchApply && onBatchApplyAll ? (
           <button
             type="button"
+            className={rpBtnOutline}
             style={{
               ...outlineBtn,
               minHeight: compact ? 44 : undefined,
@@ -159,6 +186,7 @@ export function EditorFooter({
         ) : null}
         <button
           type="button"
+          className={rpBtnPrimary}
           style={{
             ...primaryBtn,
             minHeight: compact ? 44 : undefined,

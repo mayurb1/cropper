@@ -96,6 +96,10 @@ export interface ImageEditorLabels {
   presetBlur?: string;
   applyFilters?: string;
   resetFilters?: string;
+  /** Filters tab: adjustments (sliders) section title */
+  filtersAdjustments?: string;
+  /** Filters tab: preset buttons section title */
+  filtersPresets?: string;
   /** Processing state */
   processing?: string;
 }

@@ -61,6 +61,7 @@ export function hitTestCropHandle(
   py: number,
   cropRect: CropRect | null,
   handleSize: number,
+  includeEdgeHandles = true,
 ): CropHandle | null {
   const r = getCropRectNormalized(cropRect);
   if (!r) return null;
@@ -81,34 +82,36 @@ export function hitTestCropHandle(
     )
       return handle;
   }
-  if (
-    py >= y - half &&
-    py <= y + half &&
-    px >= x + half &&
-    px <= x + width - half
-  )
-    return "n";
-  if (
-    px >= x + width - half &&
-    px <= x + width + half &&
-    py >= y + half &&
-    py <= y + height - half
-  )
-    return "e";
-  if (
-    py >= y + height - half &&
-    py <= y + height + half &&
-    px >= x + half &&
-    px <= x + width - half
-  )
-    return "s";
-  if (
-    px >= x - half &&
-    px <= x + half &&
-    py >= y + half &&
-    py <= y + height - half
-  )
-    return "w";
+  if (includeEdgeHandles) {
+    if (
+      py >= y - half &&
+      py <= y + half &&
+      px >= x + half &&
+      px <= x + width - half
+    )
+      return "n";
+    if (
+      px >= x + width - half &&
+      px <= x + width + half &&
+      py >= y + half &&
+      py <= y + height - half
+    )
+      return "e";
+    if (
+      py >= y + height - half &&
+      py <= y + height + half &&
+      px >= x + half &&
+      px <= x + width - half
+    )
+      return "s";
+    if (
+      px >= x - half &&
+      px <= x + half &&
+      py >= y + half &&
+      py <= y + height - half
+    )
+      return "w";
+  }
   if (px >= x && px <= x + width && py >= y && py <= y + height)
     return "center";
   return null;

@@ -80,5 +80,7 @@ export const DEFAULT_LABELS = {
   presetBlur: "Blur",
   applyFilters: "Apply filters",
   resetFilters: "Reset",
+  filtersAdjustments: "ADJUSTMENTS",
+  filtersPresets: "PRESETS",
   processing: "Processing…",
 } satisfies ImageEditorLabels;

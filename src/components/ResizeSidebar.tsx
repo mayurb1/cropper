@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import type { ImageEditorLabels } from "../types";
-import { primaryBtn, inputStyle } from "../styles";
+import { primaryBtn, inputStyle, rpBtnPrimary, rpBtnSurface } from "../styles";
 import { RESIZE_PRESETS } from "../constants/resizePresets";
 import {
   validateDimension,
@@ -9,6 +9,11 @@ import {
   DIMENSION_MAX,
   DIMENSION_MIN,
 } from "../utils/validation";
+import {
+  sidebarShellStyle,
+  sidebarSectionLabelStyle,
+  sidebarCardStyle,
+} from "../ImageEditor.styles";
 
 export interface ResizeSidebarProps {
   scaleW: string;
@@ -25,19 +30,23 @@ export interface ResizeSidebarProps {
   compact?: boolean;
 }
 
-const SIDEBAR_STYLE: React.CSSProperties = {
-  flex: "0 0 320px",
-  maxWidth: "100%",
-  minHeight: 0,
-  maxHeight: "100%",
-  overflowY: "auto",
-  padding: 16,
-  background: "var(--rp-surface)",
-  border: "1px solid var(--rp-border)",
-  borderRadius: 12,
-  minWidth: 280,
-  display: "flex",
-  flexDirection: "column",
+const hintStyle: React.CSSProperties = {
+  fontSize: "var(--rp-font-size-xs)",
+  color: "var(--rp-primary)",
+  display: "block",
+  marginTop: "var(--rp-space-1)",
+  fontFamily: "var(--rp-font-family)",
+};
+
+const fieldLabelStyle: React.CSSProperties = {
+  fontSize: "var(--rp-font-size-xs)",
+  fontWeight: 600,
+  color: "var(--rp-text-muted)",
+  display: "block",
+  marginBottom: "var(--rp-space-1)",
+  fontFamily: "var(--rp-font-family)",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
 };
 
 /**
@@ -72,197 +81,175 @@ export function ResizeSidebar({
   }, [wNum, hNum, wValid.valid, hValid.valid, imgSize.width, imgSize.height]);
 
   const canApply =
-    baseURL &&
-    scaleW &&
-    scaleH &&
-    wValid.valid &&
-    hValid.valid;
+    baseURL && scaleW && scaleH && wValid.valid && hValid.valid;
 
   return (
     <div
       id="react-pixcraft-panel-resize"
       role="tabpanel"
       aria-labelledby="react-pixcraft-tab-resize"
-      style={SIDEBAR_STYLE}
+      style={{
+        ...sidebarShellStyle,
+        height: "100%",
+        overflowX: "hidden",
+        overflowY: "hidden",
+      }}
     >
       <div
         style={{
-          fontSize: 11,
-          fontWeight: 600,
-          color: "var(--rp-text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-          marginBottom: 12,
-        }}
-      >
-        {labels.sizePresets}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 6,
-          marginBottom: 16,
-          maxHeight: 120,
+          flex: 1,
+          minHeight: 0,
           overflowY: "auto",
+          overscrollBehavior: "contain",
         }}
       >
-        {RESIZE_PRESETS.map((p) => (
-          <button
-            key={p.label}
-            type="button"
+      <div style={{ ...sidebarCardStyle, marginBottom: "var(--rp-space-4)", padding: "var(--rp-space-3)" }}>
+        <div style={{ ...sidebarSectionLabelStyle, marginTop: 0 }}>
+          {labels.sizePresets}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "var(--rp-space-2)",
+          }}
+        >
+          {RESIZE_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              className={rpBtnSurface}
+              disabled={!baseURL}
+              onClick={() => {
+                setScaleW(String(p.width));
+                setScaleH(String(p.height));
+                if (
+                  lockAspectRatio &&
+                  originalAspectRatio &&
+                  Math.abs(p.width / p.height - originalAspectRatio) > 0.02
+                ) {
+                  setLockAspectRatio(false);
+                }
+              }}
+              style={{
+                padding: "8px 12px",
+                border: "1px solid var(--rp-border)",
+                borderRadius: 999,
+                background: "var(--rp-surface)",
+                color: "var(--rp-text)",
+                cursor: baseURL ? "pointer" : "not-allowed",
+                fontSize: "var(--rp-font-size-xs)",
+                fontFamily: "var(--rp-font-family)",
+                minHeight: compact ? 40 : undefined,
+                opacity: baseURL ? 1 : 0.5,
+                fontWeight: 500,
+              }}
+            >
+              {p.label} {p.width}×{p.height}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ ...sidebarCardStyle, marginBottom: "var(--rp-space-4)", padding: "var(--rp-space-3)" }}>
+        <div style={{ ...sidebarSectionLabelStyle, marginTop: 0 }}>
+          {labels.outputDimensions}
+        </div>
+        <div style={{ marginBottom: "var(--rp-space-3)" }}>
+          <label style={fieldLabelStyle}>{labels.widthPx}</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            style={{
+              ...inputStyle,
+              width: "100%",
+              borderColor: !wValid.valid ? "var(--rp-danger)" : undefined,
+            }}
+            value={scaleW}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^0-9]/g, "");
+              setScaleW(value);
+              if (lockAspectRatio && value && (originalAspectRatio ?? 0) > 0) {
+                const w = parseInt(value, 10);
+                if (!Number.isNaN(w) && w > 0)
+                  setScaleH(String(Math.round(w / originalAspectRatio!)));
+              } else if (!value) setScaleH("");
+            }}
+            placeholder="px"
             disabled={!baseURL}
-            onClick={() => {
-              setScaleW(String(p.width));
-              setScaleH(String(p.height));
-              if (
-                lockAspectRatio &&
-                originalAspectRatio &&
-                Math.abs(p.width / p.height - originalAspectRatio) > 0.02
-              ) {
-                setLockAspectRatio(false);
-              }
-            }}
+            aria-invalid={!wValid.valid}
+            aria-describedby="rp-resize-w-hint"
+          />
+          {!wValid.valid && wValid.message ? (
+            <span
+              id="rp-resize-w-hint"
+              style={{
+                fontSize: "var(--rp-font-size-sm)",
+                color: "var(--rp-danger)",
+                display: "block",
+                marginTop: "var(--rp-space-1)",
+                fontFamily: "var(--rp-font-family)",
+              }}
+            >
+              {wValid.message}
+            </span>
+          ) : (
+            <span style={hintStyle}>
+              {DIMENSION_MIN}–{DIMENSION_MAX}px
+            </span>
+          )}
+        </div>
+        <div style={{ marginBottom: "var(--rp-space-3)" }}>
+          <label style={fieldLabelStyle}>{labels.heightPx}</label>
+          <input
+            type="text"
+            inputMode="numeric"
             style={{
-              padding: "6px 10px",
-              border: "1px solid var(--rp-border)",
-              borderRadius: 6,
-              background: "var(--rp-input-bg)",
-              color: "var(--rp-text)",
-              cursor: baseURL ? "pointer" : "not-allowed",
-              fontSize: 11,
-              minHeight: compact ? 40 : undefined,
-              opacity: baseURL ? 1 : 0.5,
+              ...inputStyle,
+              width: "100%",
+              borderColor: !hValid.valid ? "var(--rp-danger)" : undefined,
             }}
-          >
-            {p.label} {p.width}×{p.height}
-          </button>
-        ))}
-      </div>
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          color: "var(--rp-text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-          marginBottom: 12,
-        }}
-      >
-        {labels.outputDimensions}
-      </div>
-      <div style={{ marginBottom: 12 }}>
-        <label
-          style={{
-            fontSize: 11,
-            color: "var(--rp-text-muted)",
-            display: "block",
-            marginBottom: 4,
-          }}
-        >
-          {labels.widthPx}
-        </label>
-        <input
-          type="text"
-          inputMode="numeric"
-          style={{
-            ...inputStyle,
-            width: "100%",
-            borderColor: !wValid.valid ? "#d32f2f" : undefined,
-          }}
-          value={scaleW}
-          onChange={(e) => {
-            const value = e.target.value.replace(/[^0-9]/g, "");
-            setScaleW(value);
-            if (lockAspectRatio && value && (originalAspectRatio ?? 0) > 0) {
-              const w = parseInt(value, 10);
-              if (!Number.isNaN(w) && w > 0)
-                setScaleH(String(Math.round(w / originalAspectRatio!)));
-            } else if (!value) setScaleH("");
-          }}
-          placeholder="px"
-          disabled={!baseURL}
-          aria-invalid={!wValid.valid}
-          aria-describedby="rp-resize-w-hint"
-        />
-        {!wValid.valid && wValid.message ? (
-          <span
-            id="rp-resize-w-hint"
-            style={{ fontSize: 12, color: "#d32f2f", display: "block", marginTop: 4 }}
-          >
-            {wValid.message}
-          </span>
-        ) : (
-          <span
-            style={{
-              fontSize: 10,
-              color: "var(--rp-text-muted)",
-              display: "block",
-              marginTop: 2,
+            value={scaleH}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^0-9]/g, "");
+              setScaleH(value);
+              if (lockAspectRatio && value && (originalAspectRatio ?? 0) > 0) {
+                const h = parseInt(value, 10);
+                if (!Number.isNaN(h) && h > 0)
+                  setScaleW(String(Math.round(h * originalAspectRatio!)));
+              } else if (!value) setScaleW("");
             }}
-          >
-            {DIMENSION_MIN}–{DIMENSION_MAX}px
-          </span>
-        )}
+            placeholder="px"
+            disabled={!baseURL}
+            aria-invalid={!hValid.valid}
+          />
+          {!hValid.valid && hValid.message ? (
+            <span
+              style={{
+                fontSize: "var(--rp-font-size-sm)",
+                color: "var(--rp-danger)",
+                display: "block",
+                marginTop: "var(--rp-space-1)",
+                fontFamily: "var(--rp-font-family)",
+              }}
+            >
+              {hValid.message}
+            </span>
+          ) : (
+            <span style={hintStyle}>
+              {DIMENSION_MIN}–{DIMENSION_MAX}px
+            </span>
+          )}
+        </div>
       </div>
-      <div style={{ marginBottom: 12 }}>
-        <label
-          style={{
-            fontSize: 11,
-            color: "var(--rp-text-muted)",
-            display: "block",
-            marginBottom: 4,
-          }}
-        >
-          {labels.heightPx}
-        </label>
-        <input
-          type="text"
-          inputMode="numeric"
-          style={{
-            ...inputStyle,
-            width: "100%",
-            borderColor: !hValid.valid ? "#d32f2f" : undefined,
-          }}
-          value={scaleH}
-          onChange={(e) => {
-            const value = e.target.value.replace(/[^0-9]/g, "");
-            setScaleH(value);
-            if (lockAspectRatio && value && (originalAspectRatio ?? 0) > 0) {
-              const h = parseInt(value, 10);
-              if (!Number.isNaN(h) && h > 0)
-                setScaleW(String(Math.round(h * originalAspectRatio!)));
-            } else if (!value) setScaleW("");
-          }}
-          placeholder="px"
-          disabled={!baseURL}
-          aria-invalid={!hValid.valid}
-        />
-        {!hValid.valid && hValid.message ? (
-          <span
-            style={{ fontSize: 12, color: "#d32f2f", display: "block", marginTop: 4 }}
-          >
-            {hValid.message}
-          </span>
-        ) : (
-          <span
-            style={{
-              fontSize: 10,
-              color: "var(--rp-text-muted)",
-              display: "block",
-              marginTop: 2,
-            }}
-          >
-            {DIMENSION_MIN}–{DIMENSION_MAX}px
-          </span>
-        )}
-      </div>
+
       {upscale ? (
         <div
           style={{
-            fontSize: 12,
-            color: "#b45309",
-            marginBottom: 12,
+            fontSize: "var(--rp-font-size-sm)",
+            color: "var(--rp-warning)",
+            marginBottom: "var(--rp-space-3)",
+            fontFamily: "var(--rp-font-family)",
           }}
         >
           {upscale}
@@ -271,9 +258,10 @@ export function ResizeSidebar({
       {preview ? (
         <div
           style={{
-            fontSize: 12,
+            fontSize: "var(--rp-font-size-sm)",
             color: "var(--rp-text-muted)",
-            marginBottom: 12,
+            marginBottom: "var(--rp-space-3)",
+            fontFamily: "var(--rp-font-family)",
           }}
         >
           {preview}
@@ -283,12 +271,13 @@ export function ResizeSidebar({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 8,
-          marginBottom: 12,
-          fontSize: 13,
+          gap: "var(--rp-space-2)",
+          marginBottom: "var(--rp-space-3)",
+          fontSize: "var(--rp-font-size-md)",
           color: "var(--rp-text)",
           cursor: "pointer",
           minHeight: compact ? 44 : undefined,
+          fontFamily: "var(--rp-font-family)",
         }}
       >
         <input
@@ -296,26 +285,37 @@ export function ResizeSidebar({
           checked={lockAspectRatio}
           onChange={(e) => setLockAspectRatio(e.target.checked)}
           disabled={!baseURL}
+          style={{ accentColor: "var(--rp-primary)", width: 18, height: 18 }}
         />
         {labels.lockAspectRatio}
       </label>
       <div
         style={{
-          fontSize: 12,
+          fontSize: "var(--rp-font-size-sm)",
           color: "var(--rp-text-muted)",
-          marginBottom: 16,
+          marginBottom: "var(--rp-space-4)",
+          fontFamily: "var(--rp-font-family)",
         }}
       >
         {labels.originalDimensions}: {imgSize.width} × {imgSize.height}px
       </div>
-      <button
-        type="button"
-        style={{ ...primaryBtn, marginTop: "auto" }}
-        onClick={onApplyResize}
-        disabled={!canApply}
+      </div>
+      <div
+        style={{
+          flexShrink: 0,
+          paddingTop: "var(--rp-space-3)",
+        }}
       >
-        {labels.applyResize}
-      </button>
+        <button
+          type="button"
+          className={rpBtnPrimary}
+          style={{ ...primaryBtn, width: "100%" }}
+          onClick={onApplyResize}
+          disabled={!canApply}
+        >
+          {labels.applyResize}
+        </button>
+      </div>
     </div>
   );
 }

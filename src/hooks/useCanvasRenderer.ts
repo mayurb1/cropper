@@ -3,10 +3,6 @@ import type { CropRect } from "../types";
 import type { Viewport } from "../types";
 import { CROP_HANDLE_SIZE } from "../constants";
 import { drawImageTransformed } from "../utils/canvas";
-import {
-  getCropRectNormalized,
-  hitTestCropHandle,
-} from "../utils/crop";
 export interface UseCanvasRendererParams {
   loadedImg: HTMLImageElement | null;
   viewport: Viewport;
@@ -16,6 +12,8 @@ export interface UseCanvasRendererParams {
   /** Resolved theme name for crop overlay colors */
   resolvedTheme: "light" | "dark";
   filterStr: string;
+  /** When true (e.g. fixed aspect crop), draw corner handles only */
+  cornersOnlyCropHandles?: boolean;
 }
 
 /**
@@ -29,6 +27,7 @@ export function useCanvasRenderer({
   cropRect,
   resolvedTheme,
   filterStr,
+  cornersOnlyCropHandles = false,
 }: UseCanvasRendererParams) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -77,12 +76,12 @@ export function useCanvasRenderer({
       ctx.rect(0, 0, w, h);
       ctx.rect(drawX, drawY, drawWc, drawHc);
       ctx.fill("evenodd");
-      ctx.strokeStyle = resolvedTheme === "dark" ? "#58a6ff" : "#218bff";
+      ctx.strokeStyle = resolvedTheme === "dark" ? "#5ca6ff" : "#1a84ff";
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       ctx.strokeRect(drawX, drawY, drawWc, drawHc);
       ctx.setLineDash([]);
-      const handleColor = resolvedTheme === "dark" ? "#58a6ff" : "#218bff";
+      const handleColor = resolvedTheme === "dark" ? "#5ca6ff" : "#1a84ff";
       const hs = CROP_HANDLE_SIZE / 2;
       const handles: [number, number][] = [
         [drawX, drawY],
@@ -94,15 +93,27 @@ export function useCanvasRenderer({
         [drawX + drawWc / 2, drawY + drawHc],
         [drawX, drawY + drawHc / 2],
       ];
+      const handlesToDraw = cornersOnlyCropHandles
+        ? handles.slice(0, 4)
+        : handles;
       ctx.fillStyle = handleColor;
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 1.5;
-      for (const [hx, hy] of handles) {
+      for (const [hx, hy] of handlesToDraw) {
         ctx.fillRect(hx - hs, hy - hs, CROP_HANDLE_SIZE, CROP_HANDLE_SIZE);
         ctx.strokeRect(hx - hs, hy - hs, CROP_HANDLE_SIZE, CROP_HANDLE_SIZE);
       }
     }
-  }, [loadedImg, viewport, rotation, flip, cropRect, resolvedTheme, filterStr]);
+  }, [
+    loadedImg,
+    viewport,
+    rotation,
+    flip,
+    cropRect,
+    resolvedTheme,
+    filterStr,
+    cornersOnlyCropHandles,
+  ]);
 
   useLayoutEffect(() => {
     redraw();

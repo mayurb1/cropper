@@ -67,8 +67,6 @@ import {
   FOCUSABLE_SELECTOR,
   liveRegionStyle,
   toastFixedStyle,
-  modalInnerColumnStyle,
-  displayContentsStyle,
   headerRowStyle,
   titleStyle,
   subtitleStyle,
@@ -80,11 +78,11 @@ import {
   cropOverlayHintStyle,
   viewportHintStyle,
   loadingCanvasPlaceholderStyle,
-  editorRootStyle,
   inlineCardStyle,
-  overlayStyle,
-  modalShellStyle,
+  canvasWrapperOuterStyle,
+  sidebarShellStyle,
 } from "./ImageEditor.styles";
+import { ensureEditorChromeStyles } from "./editorChrome";
 import {
   EditorToolbar,
   CropSidebar,
@@ -97,7 +95,7 @@ import {
   ShortcutsModal,
 } from "./components";
 import type { EditorToolbarTab } from "./components";
-import { outlineBtn } from "./styles";
+import { outlineBtn, rpBtnOutline, rpBtnSurface } from "./styles";
 
 export function ImageEditor({
   src,
@@ -290,6 +288,10 @@ export function ImageEditor({
   }, [open, shortcutsRequireFocus]);
 
   useEffect(() => {
+    ensureEditorChromeStyles();
+  }, []);
+
+  useEffect(() => {
     const el = editorRootRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
@@ -340,7 +342,9 @@ export function ImageEditor({
         "linear-gradient(45deg, var(--rp-checker) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--rp-checker) 75%)",
       backgroundSize: "16px 16px",
       backgroundPosition: "0 0, 8px 8px",
-      borderRadius: 8,
+      borderRadius: "var(--rp-radius-sm)",
+      border: "1px solid color-mix(in srgb, var(--rp-border) 85%, transparent)",
+      boxShadow: "0 8px 24px -12px color-mix(in srgb, var(--rp-text) 18%, transparent)",
     };
     if (canvasScrollPort) {
       base.maxWidth = "none";
@@ -483,6 +487,7 @@ export function ImageEditor({
     cropRect,
     resolvedTheme,
     filterStr,
+    cornersOnlyCropHandles: cropModeType === "fixed",
   });
 
   const { onCanvasMouseDown, onCanvasMouseMove, clearDragState } =
@@ -493,6 +498,7 @@ export function ImageEditor({
       aspect,
       viewport,
       canvasRef,
+      cornersOnlyCropHandles: cropModeType === "fixed",
     });
 
   const { exportOptions, onSave, onDownload, onCopyClipboard } =
@@ -839,41 +845,11 @@ export function ImageEditor({
 
   const editorInner = (
     <>
-      <div
-        aria-live="polite"
-        aria-atomic="true"
-        style={{
-          position: "absolute",
-          width: 1,
-          height: 1,
-          padding: 0,
-          margin: -1,
-          overflow: "hidden",
-          clip: "rect(0,0,0,0)",
-          whiteSpace: "nowrap",
-          border: 0,
-        }}
-      >
+      <div aria-live="polite" aria-atomic="true" style={liveRegionStyle}>
         {toastMessage ?? ""}
       </div>
       {toastMessage ? (
-        <div
-          role="status"
-          style={{
-            position: "fixed",
-            bottom: 24,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 10002,
-            padding: "10px 16px",
-            background: "var(--rp-surface)",
-            border: "1px solid var(--rp-border)",
-            borderRadius: 8,
-            boxShadow: "var(--rp-shadow)",
-            fontSize: 14,
-            color: "var(--rp-text)",
-          }}
-        >
+        <div role="status" style={toastFixedStyle}>
           {toastMessage}
         </div>
       ) : null}
@@ -898,35 +874,15 @@ export function ImageEditor({
       >
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 8,
-          flexWrap: "wrap",
-          gap: 8,
+          ...headerRowStyle,
           ...(modal ? { flexShrink: 0 } : {}),
         }}
       >
         <div>
-          <h2
-            id="react-pixcraft-title"
-            style={{
-              margin: 0,
-              fontSize: 16,
-              fontWeight: 600,
-              color: "var(--rp-text)",
-            }}
-          >
+          <h2 id="react-pixcraft-title" style={titleStyle}>
             {labels.title}
           </h2>
-          <span
-            style={{
-              fontSize: 12,
-              color: "var(--rp-text-muted)",
-              display: "block",
-              marginTop: 2,
-            }}
-          >
+          <span style={subtitleStyle}>
             {baseURL
               ? isLoading
                 ? labels.processing ?? "Loading…"
@@ -935,7 +891,7 @@ export function ImageEditor({
           </span>
         </div>
         {processing ? (
-          <span style={{ fontSize: 13, color: "var(--rp-primary)" }}>
+          <span style={processingHeaderStyle}>
             {labels.processing ?? "Processing…"}
           </span>
         ) : null}
@@ -970,50 +926,23 @@ export function ImageEditor({
             : { display: "contents" }
         }
       >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          flexWrap: "nowrap",
-          gap: 16,
-          alignItems: modal ? "stretch" : "flex-start",
-          width: "100%",
-          minWidth: 0,
-          ...(modal
-            ? {
-                flex: 1,
-                minHeight: 0,
-                overflow: "hidden",
-              }
-            : { overflowX: "auto" }),
-        }}
-      >
+      <div style={mainRowStyle(modal)}>
         {batchPreviewEntries.length > 0 ? (
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flex: "0 0 auto",
-              flexShrink: 0,
-              maxHeight: compact ? 120 : 360,
-              overflowX: compact ? "auto" : "hidden",
-              overflowY: compact ? "hidden" : "auto",
-              flexDirection: compact ? "row" : "column",
-            }}
-          >
+          <div style={batchStripStyle(compact)}>
             {batchPreviewEntries.map(({ i, url, label }) => (
               <button
                 key={`${url}-${i}`}
                 type="button"
+                className={rpBtnSurface}
                 onClick={() => setBatchIndex(i)}
                 style={{
-                  padding: 4,
+                  padding: "var(--rp-space-1)",
                   border:
                     i === batchIndex
                       ? "2px solid var(--rp-primary)"
                       : "1px solid var(--rp-border)",
-                  borderRadius: 8,
-                  background: "var(--rp-input-bg)",
+                  borderRadius: "var(--rp-radius-sm)",
+                  background: "var(--rp-surface)",
                   cursor: "pointer",
                   flexShrink: 0,
                 }}
@@ -1027,7 +956,7 @@ export function ImageEditor({
                     height: 64,
                     objectFit: "cover",
                     display: "block",
-                    borderRadius: 4,
+                    borderRadius: "var(--rp-radius-sm)",
                   }}
                 />
               </button>
@@ -1035,20 +964,11 @@ export function ImageEditor({
           </div>
         ) : null}
 
-        <div
-          style={{
-            flex: sidebarActive ? "1 1 0" : "1 1 100%",
-            minWidth: 0,
-            ...(modal ? { minHeight: 0, overflow: "auto" } : {}),
-          }}
-        >
+        <div style={canvasColumnStyle(sidebarActive, modal)}>
           <div
             className={classNameCanvasWrapper}
             style={{
-              border: "1px solid var(--rp-border)",
-              borderRadius: 12,
-              padding: 12,
-              background: "var(--rp-surface)",
+              ...canvasWrapperOuterStyle,
               minHeight: canvasScrollPort
                 ? canvasScrollPort.height + 24
                 : compact
@@ -1079,9 +999,9 @@ export function ImageEditor({
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 16,
-                  padding: 24,
-                  borderRadius: 8,
+                  gap: "var(--rp-space-4)",
+                  padding: "var(--rp-space-5)",
+                  borderRadius: "var(--rp-radius-md)",
                   border: `2px dashed ${
                     emptyStateDragActive
                       ? "var(--rp-primary)"
@@ -1089,9 +1009,10 @@ export function ImageEditor({
                   }`,
                   background: emptyStateDragActive
                     ? "color-mix(in srgb, var(--rp-primary) 10%, transparent)"
-                    : "transparent",
+                    : "var(--rp-surface)",
                   color: "var(--rp-text-muted)",
-                  fontSize: 14,
+                  fontSize: "var(--rp-font-size-md)",
+                  fontFamily: "var(--rp-font-family)",
                   textAlign: "center",
                   outline: "none",
                   boxSizing: "border-box",
@@ -1100,14 +1021,21 @@ export function ImageEditor({
                 <span
                   style={{
                     color: "var(--rp-text)",
-                    fontSize: 14,
-                    maxWidth: 320,
-                    lineHeight: 1.4,
+                    fontSize: "var(--rp-font-size-md)",
+                    maxWidth: 360,
+                    lineHeight: 1.5,
+                    fontFamily: "var(--rp-font-family)",
                   }}
                 >
                   {labels.selectOrUpload}
                 </span>
-                <span id={`${emptyUploadInputId}-hint`} style={{ fontSize: 13 }}>
+                <span
+                  id={`${emptyUploadInputId}-hint`}
+                  style={{
+                    fontSize: "var(--rp-font-size-sm)",
+                    fontFamily: "var(--rp-font-family)",
+                  }}
+                >
                   {labels.dropImageHint}
                 </span>
                 <input
@@ -1121,6 +1049,7 @@ export function ImageEditor({
                 />
                 <button
                   type="button"
+                  className={rpBtnOutline}
                   style={{
                     ...outlineBtn,
                     minHeight: compact ? 44 : undefined,
@@ -1131,16 +1060,7 @@ export function ImageEditor({
                 </button>
               </div>
             ) : isLoading ? (
-              <div
-                style={{
-                  minHeight: 320,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--rp-text-muted)",
-                  fontSize: 14,
-                }}
-              >
+              <div style={loadingCanvasPlaceholderStyle}>
                 {labels.processing ?? "Loading…"}
               </div>
             ) : (
@@ -1152,13 +1072,7 @@ export function ImageEditor({
                     const r = getCropRectNormalized(cropRect);
                     if (!r) return null;
                     return (
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "var(--rp-text-muted)",
-                          marginBottom: 6,
-                        }}
-                      >
+                      <div style={cropOverlayHintStyle}>
                         {Math.round(r.x)}, {Math.round(r.y)} ·{" "}
                         {Math.round(r.width)} × {Math.round(r.height)} px
                       </div>
@@ -1191,14 +1105,7 @@ export function ImageEditor({
                   />
                 </div>
                 {baseURL ? (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      marginTop: 6,
-                      fontSize: 12,
-                      color: "var(--rp-text-muted)",
-                    }}
-                  >
+                  <div style={viewportHintStyle}>
                     {viewport.w} × {viewport.h} px
                   </div>
                 ) : null}
@@ -1298,15 +1205,7 @@ export function ImageEditor({
             role="tabpanel"
             id={`react-pixcraft-panel-${CUSTOM_TAB_ID}`}
             aria-labelledby={`react-pixcraft-tab-${CUSTOM_TAB_ID}`}
-            style={{
-              flex: "0 0 320px",
-              flexShrink: 0,
-              minWidth: 280,
-              maxWidth: "100%",
-              minHeight: 0,
-              maxHeight: "100%",
-              overflowY: "auto",
-            }}
+            style={{ ...sidebarShellStyle, ...customTabPanelStyle }}
           >
             {customTab.content}
           </div>
@@ -1365,10 +1264,7 @@ export function ImageEditor({
       <div
         ref={modal ? undefined : modalContentRef}
         style={{
-          border: "1px solid var(--rp-border)",
-          borderRadius: 12,
-          padding: 16,
-          background: "var(--rp-bg)",
+          ...inlineCardStyle,
           ...stylesProp?.card,
         }}
       >
@@ -1399,9 +1295,10 @@ export function ImageEditor({
       position: "relative",
       boxShadow: "var(--rp-shadow)",
       border: "1px solid var(--rp-border)",
-      borderRadius: 12,
-      padding: 16,
-      background: "var(--rp-bg)",
+      borderRadius: "var(--rp-radius-lg)",
+      padding: "var(--rp-space-4)",
+      background: "var(--rp-surface)",
+      fontFamily: "var(--rp-font-family)",
       ...stylesProp?.modal,
       ...stylesProp?.root,
       ...stylesProp?.card,
@@ -1419,7 +1316,7 @@ export function ImageEditor({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: 16,
+            padding: "var(--rp-space-4)",
             ...themeVars,
             ...stylesProp?.overlay,
           }}

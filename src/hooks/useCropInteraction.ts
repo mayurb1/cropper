@@ -24,13 +24,14 @@ export interface UseCropInteractionParams {
   aspect: number | undefined;
   viewport: Viewport;
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  /** When true (e.g. fixed aspect crop), only corner handles resize; edges act as move inside rect */
+  cornersOnlyCropHandles?: boolean;
 }
 
-const RESIZE_HANDLES = new Set<CropHandle>([
-  "nw",
-  "ne",
-  "se",
-  "sw",
+const CORNER_RESIZE_HANDLES = new Set<CropHandle>(["nw", "ne", "se", "sw"]);
+
+const ALL_RESIZE_HANDLES = new Set<CropHandle>([
+  ...CORNER_RESIZE_HANDLES,
   "n",
   "e",
   "s",
@@ -47,7 +48,11 @@ export function useCropInteraction({
   aspect,
   viewport,
   canvasRef,
+  cornersOnlyCropHandles = false,
 }: UseCropInteractionParams) {
+  const resizeHandles = cornersOnlyCropHandles
+    ? CORNER_RESIZE_HANDLES
+    : ALL_RESIZE_HANDLES;
   const isDrawingRef = useRef(false);
   const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const dragStartRef = useRef<{
@@ -80,9 +85,10 @@ export function useCropInteraction({
             pos.x,
             pos.y,
             cropRect,
-            CROP_HANDLE_SIZE
+            CROP_HANDLE_SIZE,
+            !cornersOnlyCropHandles
           );
-          if (hit && hit !== "center" && RESIZE_HANDLES.has(hit)) {
+          if (hit && hit !== "center" && resizeHandles.has(hit)) {
             resizeHandleRef.current = hit;
             return;
           }
@@ -102,7 +108,7 @@ export function useCropInteraction({
         setCropRect({ x: pos.x, y: pos.y, width: 0, height: 0 });
       }
     },
-    [cropMode, cropRect, getCanvasPoint, setCropRect]
+    [cropMode, cropRect, cornersOnlyCropHandles, getCanvasPoint, setCropRect]
   );
 
   const onCanvasMouseMove = useCallback(
@@ -150,7 +156,8 @@ export function useCropInteraction({
           pos.x,
           pos.y,
           cropRect,
-          CROP_HANDLE_SIZE
+          CROP_HANDLE_SIZE,
+          !cornersOnlyCropHandles
         );
         const cursor =
           hit === "nw" || hit === "se"
@@ -167,7 +174,16 @@ export function useCropInteraction({
         canvasRef.current.style.cursor = cursor;
       }
     },
-    [cropMode, cropRect, aspect, viewport, getCanvasPoint, setCropRect, canvasRef]
+    [
+      cropMode,
+      cropRect,
+      cornersOnlyCropHandles,
+      aspect,
+      viewport,
+      getCanvasPoint,
+      setCropRect,
+      canvasRef,
+    ]
   );
 
   const clearDragState = useCallback(() => {

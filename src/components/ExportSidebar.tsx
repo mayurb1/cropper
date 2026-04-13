@@ -1,7 +1,12 @@
 import React, { useMemo } from "react";
 import type { ExportImageFormat, ImageEditorLabels } from "../types";
-import { primaryBtn, baseBtn } from "../styles";
+import { primaryBtn, rpBtnPrimary, rpBtnOutline, outlineBtn } from "../styles";
 import { estimateRgbSizeKb } from "../utils/validation";
+import {
+  sidebarShellStyle,
+  sidebarSectionLabelStyle,
+  sidebarCardStyle,
+} from "../ImageEditor.styles";
 
 export interface ExportSidebarProps {
   exportMime: ExportImageFormat;
@@ -15,31 +20,6 @@ export interface ExportSidebarProps {
   baseURL: string | null;
   compact?: boolean;
 }
-
-const SIDEBAR_STYLE: React.CSSProperties = {
-  flex: "0 0 320px",
-  maxWidth: "100%",
-  minHeight: 0,
-  maxHeight: "100%",
-  overflowY: "auto",
-  padding: 16,
-  background: "var(--rp-surface)",
-  border: "1px solid var(--rp-border)",
-  borderRadius: 12,
-  minWidth: 280,
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-};
-
-const LABEL: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  color: "var(--rp-text-muted)",
-  textTransform: "uppercase",
-  letterSpacing: "0.5px",
-  marginBottom: 8,
-};
 
 const FORMATS: { mime: ExportImageFormat; labelKey: keyof ImageEditorLabels }[] =
   [
@@ -81,47 +61,92 @@ export function ExportSidebar({
       id="react-pixcraft-panel-export"
       role="tabpanel"
       aria-labelledby="react-pixcraft-tab-export"
-      style={SIDEBAR_STYLE}
+      style={{
+        ...sidebarShellStyle,
+        height: "100%",
+        overflowX: "hidden",
+        overflowY: "hidden",
+      }}
     >
-      <div>
-        <div style={LABEL}>{labels.exportFormat}</div>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--rp-space-3)",
+        }}
+      >
+      <div
+        style={{
+          ...sidebarCardStyle,
+          padding: "var(--rp-space-3)",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ ...sidebarSectionLabelStyle, marginTop: 0 }}>
+          {labels.exportFormat}
+        </div>
         <div
-          style={{ display: "flex", flexDirection: "column", gap: 8 }}
+          style={{ display: "flex", flexDirection: "column", gap: "var(--rp-space-2)" }}
           role="radiogroup"
           aria-label={labels.exportFormat}
         >
           {FORMATS.map(({ mime, labelKey }) => {
             const id = `rp-export-${mime}`;
+            const selected = exportMime === mime;
             return (
               <label
                 key={mime}
+                htmlFor={id}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
-                  fontSize: 14,
+                  gap: "var(--rp-space-3)",
+                  fontSize: "var(--rp-font-size-md)",
                   color: "var(--rp-text)",
                   cursor: disabled ? "not-allowed" : "pointer",
-                  minHeight: compact ? 44 : undefined,
+                  minHeight: compact ? 44 : 40,
+                  fontFamily: "var(--rp-font-family)",
+                  padding: "var(--rp-space-2) var(--rp-space-3)",
+                  borderRadius: "var(--rp-radius-sm)",
+                  border: `1px solid ${selected ? "var(--rp-primary)" : "var(--rp-border)"}`,
+                  background: selected
+                    ? "color-mix(in srgb, var(--rp-primary) 10%, var(--rp-surface))"
+                    : "var(--rp-surface-muted)",
                 }}
               >
                 <input
                   id={id}
                   type="radio"
                   name="rp-export-format"
-                  checked={exportMime === mime}
+                  checked={selected}
                   onChange={() => setExportMime(mime)}
                   disabled={disabled}
+                  style={{ accentColor: "var(--rp-primary)", width: 18, height: 18 }}
                 />
-                <span>{labels[labelKey] ?? mime}</span>
+                <span style={{ fontWeight: selected ? 600 : 500 }}>
+                  {labels[labelKey] ?? mime}
+                </span>
               </label>
             );
           })}
         </div>
       </div>
+
       {showQuality ? (
-        <div>
-          <div style={LABEL}>{labels.exportQuality}</div>
+        <div
+          style={{
+            ...sidebarCardStyle,
+            padding: "var(--rp-space-3)",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ ...sidebarSectionLabelStyle, marginTop: 0 }}>
+            {labels.exportQuality}
+          </div>
           <input
             type="range"
             min={1}
@@ -129,25 +154,49 @@ export function ExportSidebar({
             value={exportQuality}
             onChange={(e) => setExportQuality(Number(e.target.value))}
             disabled={disabled}
-            style={{ width: "100%", accentColor: "var(--rp-primary)" }}
+            style={{
+              width: "100%",
+              accentColor: "var(--rp-primary)",
+            }}
           />
-          <div style={{ fontSize: 12, color: "var(--rp-text-muted)" }}>
+          <div
+            style={{
+              fontSize: "var(--rp-font-size-sm)",
+              color: "var(--rp-text-muted)",
+              fontFamily: "var(--rp-font-family)",
+              marginTop: "var(--rp-space-1)",
+            }}
+          >
             {exportQuality}%
           </div>
         </div>
       ) : null}
+
       <div
         style={{
-          fontSize: 12,
+          fontSize: "var(--rp-font-size-sm)",
           color: "var(--rp-text-muted)",
+          fontFamily: "var(--rp-font-family)",
+          flexShrink: 0,
         }}
       >
         {labels.estimatedSize}: ~{estKb} KB (uncompressed RGB estimate)
       </div>
-      <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+      </div>
+
+      <div
+        style={{
+          flexShrink: 0,
+          paddingTop: "var(--rp-space-3)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--rp-space-2)",
+        }}
+      >
         <button
           type="button"
-          style={primaryBtn}
+          className={rpBtnPrimary}
+          style={{ ...primaryBtn, width: "100%" }}
           disabled={disabled}
           onClick={onDownload}
         >
@@ -155,7 +204,12 @@ export function ExportSidebar({
         </button>
         <button
           type="button"
-          style={baseBtn}
+          className={rpBtnOutline}
+          style={{
+            ...outlineBtn,
+            width: "100%",
+            minHeight: compact ? 44 : undefined,
+          }}
           disabled={disabled}
           onClick={onCopyClipboard}
         >

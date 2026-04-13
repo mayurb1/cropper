@@ -1,5 +1,6 @@
 import React from "react";
 import type { ImageEditorLabels } from "../types";
+import { rpBtnGhost } from "../styles";
 
 export interface ShortcutsModalProps {
   open: boolean;
@@ -10,19 +11,21 @@ export interface ShortcutsModalProps {
 const ROW: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 16,
-  padding: "8px 0",
+  gap: "var(--rp-space-4)",
+  padding: "10px 0",
   borderBottom: "1px solid var(--rp-border)",
-  fontSize: 14,
+  fontSize: "var(--rp-font-size-md)",
   color: "var(--rp-text)",
+  fontFamily: "var(--rp-font-family)",
 };
 
 const KBD: React.CSSProperties = {
-  fontFamily: "monospace",
-  background: "var(--rp-input-bg)",
-  padding: "4px 8px",
-  borderRadius: 4,
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+  background: "var(--rp-surface-muted)",
+  padding: "6px 10px",
+  borderRadius: "var(--rp-radius-sm)",
   border: "1px solid var(--rp-border)",
+  fontSize: "var(--rp-font-size-sm)",
 };
 
 /**
@@ -44,7 +47,8 @@ export function ShortcutsModal({ open, onClose, labels }: ShortcutsModalProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: 16,
+        padding: "var(--rp-space-4)",
+        fontFamily: "var(--rp-font-family)",
       }}
       onClick={onClose}
       onKeyDown={(e) => {
@@ -53,10 +57,10 @@ export function ShortcutsModal({ open, onClose, labels }: ShortcutsModalProps) {
     >
       <div
         style={{
-          background: "var(--rp-bg)",
+          background: "var(--rp-surface)",
           border: "1px solid var(--rp-border)",
-          borderRadius: 12,
-          padding: 20,
+          borderRadius: "var(--rp-radius-lg)",
+          padding: "var(--rp-space-5)",
           maxWidth: 420,
           width: "100%",
           boxShadow: "var(--rp-shadow)",
@@ -68,20 +72,23 @@ export function ShortcutsModal({ open, onClose, labels }: ShortcutsModalProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 16,
+            marginBottom: "var(--rp-space-4)",
           }}
         >
           <h3
             style={{
               margin: 0,
               fontSize: 18,
+              fontWeight: 700,
               color: "var(--rp-text)",
+              fontFamily: "var(--rp-font-family)",
             }}
           >
             {labels.keyboardShortcuts}
           </h3>
           <button
             type="button"
+            className={rpBtnGhost}
             onClick={onClose}
             style={{
               border: "none",
@@ -90,13 +97,15 @@ export function ShortcutsModal({ open, onClose, labels }: ShortcutsModalProps) {
               fontSize: 22,
               cursor: "pointer",
               lineHeight: 1,
+              padding: "var(--rp-space-2)",
+              borderRadius: "var(--rp-radius-sm)",
             }}
             aria-label={labels.shortcutsClose}
           >
             ×
           </button>
         </div>
-        <div style={{ marginBottom: 8 }}>
+        <div style={{ marginBottom: "var(--rp-space-2)" }}>
           <div style={ROW}>
             <span>{labels.shortcutUndo}</span>
             <kbd style={KBD}>Ctrl+Z</kbd>
