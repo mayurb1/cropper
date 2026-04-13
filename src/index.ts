@@ -1,4 +1,4 @@
-export { ImageEditor } from "./ImageEditor";
+export { ImageEditor, ImageEditor as default } from "./ImageEditor";
 export type {
   ImageEditorProps,
   ImageEditorPreviewFit,
