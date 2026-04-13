@@ -11,7 +11,7 @@ export interface EditorToolbarTab {
 export interface EditorToolbarProps {
   /** Tabs to display (core tabs + optional custom tab from parent) */
   tabs: EditorToolbarTab[];
-  activeTab: string;
+  activeTab: TabId;
   onTabChange: (tab: TabId) => void;
   onClose: () => void;
   labels: ImageEditorLabels;
@@ -48,7 +48,7 @@ export function EditorToolbar({
   const onTabListKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       const ids = tabs.map((t) => t.id);
-      const cur = ids.indexOf(activeTab as TabId);
+      const cur = ids.indexOf(activeTab);
       if (cur < 0) return;
 
       if (e.key === "ArrowRight" || e.key === "ArrowDown") {

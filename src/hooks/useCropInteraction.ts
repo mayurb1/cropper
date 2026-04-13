@@ -53,6 +53,8 @@ export function useCropInteraction({
   const resizeHandles = cornersOnlyCropHandles
     ? CORNER_RESIZE_HANDLES
     : ALL_RESIZE_HANDLES;
+  const cropRectRef = useRef(cropRect);
+  cropRectRef.current = cropRect;
   const isDrawingRef = useRef(false);
   const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const dragStartRef = useRef<{
@@ -120,7 +122,7 @@ export function useCropInteraction({
         canvasRef.current.style.cursor = "";
       }
       if (cropMode && resizeHandleRef.current) {
-        const r = getCropRectNormalized(cropRect);
+        const r = getCropRectNormalized(cropRectRef.current);
         if (r) {
           const next = resizeCropRectFromHandle(
             resizeHandleRef.current,
@@ -149,13 +151,13 @@ export function useCropInteraction({
       } else if (
         cropMode &&
         canvasRef.current &&
-        cropRect &&
-        (cropRect.width !== 0 || cropRect.height !== 0)
+        cropRectRef.current &&
+        (cropRectRef.current.width !== 0 || cropRectRef.current.height !== 0)
       ) {
         const hit = hitTestCropHandle(
           pos.x,
           pos.y,
-          cropRect,
+          cropRectRef.current,
           CROP_HANDLE_SIZE,
           !cornersOnlyCropHandles
         );
@@ -176,7 +178,6 @@ export function useCropInteraction({
     },
     [
       cropMode,
-      cropRect,
       cornersOnlyCropHandles,
       aspect,
       viewport,

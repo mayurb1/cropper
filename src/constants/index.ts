@@ -8,6 +8,7 @@ export {
   FILTERS_TAB_ID,
   EXPORT_TAB_ID,
 } from "./defaults";
+export { EMPTY_IMAGE_EDITOR_BATCH } from "./batch";
 export type { TabId, CoreTabId } from "./defaults";
 export { ASPECT_PRESETS } from "./aspectPresets";
 export { RESIZE_PRESETS } from "./resizePresets";

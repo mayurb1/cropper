@@ -6,7 +6,7 @@ import {
   sidebarShellStyle,
   sidebarSectionLabelStyle,
   sidebarCardStyle,
-} from "../ImageEditor.styles";
+} from "../editorShell.styles";
 
 export interface ExportSidebarProps {
   exportMime: ExportImageFormat;

@@ -15,7 +15,7 @@
  * <ImageEditor
  *   src={imageUrl}
  *   canvasFrame={{ width: 640, height: 480 }}
- *   onExport={(blob) => console.log(blob)}
+ *   onExport={(blob) => { void blob; }}
  *   onClose={() => setOpen(false)}
  * />
  * ```
@@ -39,7 +39,6 @@ import type {
 } from "./types";
 import {
   DEFAULT_VIEWPORT,
-  DEFAULT_LABELS,
   CORE_TABS,
   CUSTOM_TAB_ID,
   FILTERS_TAB_ID,
@@ -53,6 +52,7 @@ import { getCropRectNormalized } from "./utils/crop";
 import { drawImageTransformed } from "./utils/canvas";
 import { buildCanvasFilterString, isFilterDefault } from "./utils/filterString";
 import { validateDimension } from "./utils/validation";
+import { mergeImageEditorLabels } from "./utils/mergeLabels";
 import { useTheme } from "./hooks/useTheme";
 import { useImageLoader } from "./hooks/useImageLoader";
 import { useObjectURL } from "./hooks/useObjectURL";
@@ -63,6 +63,7 @@ import { useCanvasRenderer } from "./hooks/useCanvasRenderer";
 import { useCropInteraction } from "./hooks/useCropInteraction";
 import { useTransformActions } from "./hooks/useTransformActions";
 import { useExportActions } from "./hooks/useExportActions";
+import { useImageEditorBatch } from "./hooks/useImageEditorModel";
 import {
   FOCUSABLE_SELECTOR,
   liveRegionStyle,
@@ -80,8 +81,8 @@ import {
   loadingCanvasPlaceholderStyle,
   inlineCardStyle,
   canvasWrapperOuterStyle,
-  sidebarShellStyle,
 } from "./ImageEditor.styles";
+import { sidebarShellStyle } from "./editorShell.styles";
 import { ensureEditorChromeStyles } from "./editorChrome";
 import {
   EditorToolbar,
@@ -132,7 +133,6 @@ export function ImageEditor({
 
   const [open, setOpen] = useState(true);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [batchIndex, setBatchIndex] = useState(0);
   const [compact, setCompact] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -147,7 +147,7 @@ export function ImageEditor({
   const { message: toastMessage, show: showToast } = useToast();
 
   const labels = useMemo(
-    () => ({ ...DEFAULT_LABELS, ...labelsProp } as typeof DEFAULT_LABELS),
+    () => mergeImageEditorLabels(labelsProp),
     [labelsProp]
   );
 
@@ -155,41 +155,13 @@ export function ImageEditor({
     if (isExportMime(mime)) setExportMime(mime);
   }, [mime]);
 
-  const batchItems = batch ?? [];
-  const batchKey = useMemo(
-    () =>
-      batchItems
-        .map((b) => `${b.file.name}-${b.file.size}-${b.file.lastModified}`)
-        .join("|"),
-    [batchItems]
-  );
-
-  const [batchPreviewEntries, setBatchPreviewEntries] = useState<
-    { i: number; url: string; label: string }[]
-  >([]);
-
-  useEffect(() => {
-    const entries = batchItems.map((item, i) => ({
-      i,
-      url: URL.createObjectURL(item.file),
-      label: item.label ?? item.file.name,
-    }));
-    setBatchPreviewEntries(entries);
-    return () => {
-      entries.forEach((e) => URL.revokeObjectURL(e.url));
-    };
-  }, [batchKey, batchItems]);
-
-  const fileForUrl =
-    batchItems.length > 0
-      ? batchItems[batchIndex]?.file ?? null
-      : file ?? null;
-
-  useEffect(() => {
-    setBatchIndex((i) =>
-      batchItems.length === 0 ? 0 : Math.min(i, batchItems.length - 1)
-    );
-  }, [batchItems.length]);
+  const {
+    batchItems,
+    batchPreviewEntries,
+    fileForUrl,
+    batchIndex,
+    setBatchIndex,
+  } = useImageEditorBatch(batch, file);
 
   const [activeTab, setActiveTab] = useState<TabId>("crop");
 
@@ -835,6 +807,60 @@ export function ImageEditor({
     showToast,
   ]);
 
+  const onApplyCrop = useCallback(() => {
+    void applyCrop();
+  }, [applyCrop]);
+
+  const onClearCrop = useCallback(() => {
+    setCropRect(null);
+  }, []);
+
+  const onApplyResize = useCallback(() => {
+    void applyResizeAction();
+  }, [applyResizeAction]);
+
+  const onApplyScale = useCallback(() => {
+    void applyScaleAction();
+  }, [applyScaleAction]);
+
+  const onApplyFiltersAction = useCallback(() => {
+    void applyFilters();
+  }, [applyFilters]);
+
+  const onResetFiltersToDefault = useCallback(() => {
+    setFilter(DEFAULT_FILTER);
+  }, []);
+
+  const onTabChange = useCallback((tab: TabId) => {
+    setActiveTab(tab);
+  }, []);
+
+  const onShortcutsModalClose = useCallback(() => {
+    setShortcutsOpen(false);
+  }, []);
+
+  const onBatchApplyAllClick = useCallback(() => {
+    void onBatchApplyAll();
+  }, [onBatchApplyAll]);
+
+  const cropMetricsHint = useMemo(() => {
+    if (
+      activeTab !== "crop" ||
+      !cropRect ||
+      (cropRect.width === 0 && cropRect.height === 0)
+    ) {
+      return null;
+    }
+    const r = getCropRectNormalized(cropRect);
+    if (!r) return null;
+    return (
+      <div style={cropOverlayHintStyle}>
+        {Math.round(r.x)}, {Math.round(r.y)} · {Math.round(r.width)} ×{" "}
+        {Math.round(r.height)} px
+      </div>
+    );
+  }, [activeTab, cropRect]);
+
   const sidebarActive =
     activeTab === "crop" ||
     activeTab === "resize" ||
@@ -855,7 +881,7 @@ export function ImageEditor({
       ) : null}
       <ShortcutsModal
         open={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
+        onClose={onShortcutsModalClose}
         labels={labels}
       />
 
@@ -903,7 +929,7 @@ export function ImageEditor({
         <EditorToolbar
           tabs={editorTabs}
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab)}
+          onTabChange={onTabChange}
           onClose={handleClose}
           labels={labels}
           classNameToolbar={classNameToolbar}
@@ -1065,19 +1091,7 @@ export function ImageEditor({
               </div>
             ) : (
               <>
-                {activeTab === "crop" &&
-                  cropRect &&
-                  (cropRect.width !== 0 || cropRect.height !== 0) &&
-                  (() => {
-                    const r = getCropRectNormalized(cropRect);
-                    if (!r) return null;
-                    return (
-                      <div style={cropOverlayHintStyle}>
-                        {Math.round(r.x)}, {Math.round(r.y)} ·{" "}
-                        {Math.round(r.width)} × {Math.round(r.height)} px
-                      </div>
-                    );
-                  })()}
+                {cropMetricsHint}
                 <div
                   className={
                     canvasScrollPort ? classNameCanvasScrollArea : undefined
@@ -1121,10 +1135,8 @@ export function ImageEditor({
             aspect={aspect}
             setAspect={setAspect}
             cropRect={cropRect}
-            onApplyCrop={() => {
-              void applyCrop();
-            }}
-            onClearCrop={() => setCropRect(null)}
+            onApplyCrop={onApplyCrop}
+            onClearCrop={onClearCrop}
             labels={labels}
             baseURL={baseURL}
             rotationDeg={rotation}
@@ -1148,9 +1160,7 @@ export function ImageEditor({
             setLockAspectRatio={setLockAspectRatio}
             originalAspectRatio={originalAspectRatio}
             imgSize={imgSize}
-            onApplyResize={() => {
-              void applyResizeAction();
-            }}
+            onApplyResize={onApplyResize}
             labels={labels}
             baseURL={baseURL}
             compact={compact}
@@ -1162,9 +1172,7 @@ export function ImageEditor({
             scaleFactorPercent={scaleFactorPercent}
             setScaleFactorPercent={setScaleFactorPercent}
             imgSize={imgSize}
-            onApplyScale={() => {
-              void applyScaleAction();
-            }}
+            onApplyScale={onApplyScale}
             labels={labels}
             baseURL={baseURL}
             compact={compact}
@@ -1175,10 +1183,8 @@ export function ImageEditor({
           <FiltersSidebar
             filter={filter}
             setFilter={setFilter}
-            onApplyFilters={() => {
-              void applyFilters();
-            }}
-            onResetFilters={() => setFilter(DEFAULT_FILTER)}
+            onApplyFilters={onApplyFiltersAction}
+            onResetFilters={onResetFiltersToDefault}
             labels={labels}
             baseURL={baseURL}
             compact={compact}
@@ -1235,9 +1241,7 @@ export function ImageEditor({
         onToggleHistory={() => setHistoryPanelOpen((v) => !v)}
         historyPanelOpen={historyPanelOpen}
         showBatchApply={batchItems.length > 1}
-        onBatchApplyAll={() => {
-          void onBatchApplyAll();
-        }}
+        onBatchApplyAll={onBatchApplyAllClick}
         batchApplyDisabled={
           processing ||
           isLoading ||
