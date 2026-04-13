@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { ImageEditor } from "../src/index.js";
+import { ImageEditor } from "../src/index.ts";
 
 const sectionStyle = {
   marginBottom: 32,
@@ -76,6 +76,11 @@ function ComponentFirstExample() {
           onClose={() => setShowEditor(false)}
           maxViewport={{ width: 1920, height: 1080 }}
           mime="image/png"
+
+          customTab={{
+            label: "Custom",
+            content: <div>Custom content</div>,
+          }}
         />
       )}
     </div>
@@ -92,7 +97,8 @@ function EditBeforeUploadExample() {
       <h2 style={titleStyle}>2. Edit-before-upload (middleware)</h2>
       <p style={descStyle}>
         User selects a file in your UI → editor opens with that file → user edits → on Save you get a Blob and upload
-        it. Pass the <code>File</code> via the <code>file</code> prop.
+        it. Pass the <code>File</code> via the <code>file</code> prop. A fixed <code>canvasFrame</code> keeps the image
+        area at 560×420px with scroll for large images.
       </p>
       <input
         type="file"
@@ -103,6 +109,7 @@ function EditBeforeUploadExample() {
       {selectedFile && (
         <ImageEditor
           file={selectedFile}
+          canvasFrame={{ width: 560, height: 420 }}
           onExport={(blob, meta) => {
             handleExport(blob, meta);
             setSelectedFile(null);

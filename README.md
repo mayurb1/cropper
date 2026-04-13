@@ -21,8 +21,8 @@ npm install react-pixcraft
 
 ## Peer Dependencies
 
-- `react` >= 17.0.0
-- `react-dom` >= 17.0.0
+- `react` >= 18.0.0
+- `react-dom` >= 18.0.0
 
 ## Two ways to use
 
