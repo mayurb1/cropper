@@ -1,5 +1,10 @@
 
-name: Publish to npm
+name: Verify npm trusted publishing setup
+run: |
+    node --version
+    npm --version
+    npm config get registry
+    npm whoami
 
 'on':
   push:
