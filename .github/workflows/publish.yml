@@ -34,7 +34,7 @@ jobs:
       - name: Publish to npm
         run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.REACT_PIXCRAFT_ACTIONS_PUBLISH }}
+          NODE_AUTH_TOKEN: ${{ secrets.REACT_PIXCRAFT_ACTIONS_PUBLISH_1 }}
 
       - name: Commit version bump
         run: |
