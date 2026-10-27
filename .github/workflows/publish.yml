@@ -1,10 +1,4 @@
-
-name: Verify npm trusted publishing setup
-run: |
-    node --version
-    npm --version
-    npm config get registry
-    npm whoami
+name: Publish to npm
 
 'on':
   push:
@@ -30,8 +24,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
-          package-manager-cache: false
 
       - name: Install npm version
         run: npm install -g npm@11.5.1
@@ -51,7 +43,7 @@ jobs:
         run: npm version patch --no-git-tag-version
 
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish --access public --provenance
 
       - name: Commit version bump
         run: |
