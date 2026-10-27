@@ -61,6 +61,14 @@
   ],
   "author": "Mayur Bhalgama",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mayurb1/cropper.git"
+  },
+  "homepage": "https://github.com/mayurb1/cropper#readme",
+  "bugs": {
+    "url": "https://github.com/mayurb1/cropper/issues"
+  },
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
